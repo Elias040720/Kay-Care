@@ -1,0 +1,67 @@
+<?php
+
+// Spanish messages for the validation rules used by Kay Care API v1.
+// Rules not listed here fall back to the English defaults (APP_FALLBACK_LOCALE).
+
+return [
+    'after_or_equal' => 'El campo :attribute debe ser una fecha posterior o igual a :date.',
+    'array' => 'El campo :attribute debe ser una lista.',
+    'before_or_equal' => 'El campo :attribute debe ser una fecha anterior o igual a :date.',
+    'between' => [
+        'numeric' => 'El campo :attribute debe estar entre :min y :max.',
+        'string' => 'El campo :attribute debe tener entre :min y :max caracteres.',
+    ],
+    'date_format' => 'El campo :attribute debe tener el formato :format.',
+    'decimal' => 'El campo :attribute debe tener :decimal decimales.',
+    'distinct' => 'El campo :attribute tiene un valor duplicado.',
+    'email' => 'El campo :attribute debe ser un correo electrónico válido.',
+    'enum' => 'El valor seleccionado en :attribute no es válido.',
+    'exists' => 'El valor seleccionado en :attribute no existe.',
+    'in' => 'El valor seleccionado en :attribute no es válido.',
+    'integer' => 'El campo :attribute debe ser un número entero.',
+    'list' => 'El campo :attribute debe ser una lista.',
+    'max' => [
+        'array' => 'El campo :attribute no debe tener más de :max elementos.',
+        'numeric' => 'El campo :attribute no debe ser mayor que :max.',
+        'string' => 'El campo :attribute no debe tener más de :max caracteres.',
+    ],
+    'min' => [
+        'array' => 'El campo :attribute debe tener al menos :min elementos.',
+        'numeric' => 'El campo :attribute debe ser al menos :min.',
+        'string' => 'El campo :attribute debe tener al menos :min caracteres.',
+    ],
+    'numeric' => 'El campo :attribute debe ser numérico.',
+    'present' => 'El campo :attribute debe estar presente.',
+    'prohibited' => 'El campo :attribute no está permitido.',
+    'regex' => 'El formato de :attribute no es válido.',
+    'required' => 'El campo :attribute es obligatorio.',
+    'string' => 'El campo :attribute debe ser texto.',
+    'unique' => 'El valor de :attribute ya está registrado.',
+    'uuid' => 'El campo :attribute debe ser un UUID válido.',
+
+    'attributes' => [
+        'email' => 'correo electrónico',
+        'password' => 'contraseña',
+        'chart_number' => 'número de historia clínica',
+        'first_name' => 'nombres',
+        'last_name' => 'apellidos',
+        'birth_date' => 'fecha de nacimiento',
+        'sex' => 'sexo',
+        'document_type' => 'tipo de documento',
+        'document_number' => 'número de documento',
+        'locality' => 'localidad',
+        'patient_id' => 'paciente',
+        'type' => 'tipo de atención',
+        'occurred_at' => 'fecha y hora de la atención',
+        'clinical_note' => 'nota clínica',
+        'weight_kg' => 'peso (kg)',
+        'height_cm' => 'talla (cm)',
+        'hb_g_dl' => 'hemoglobina (g/dL)',
+        'search' => 'búsqueda',
+        'page' => 'página',
+        'lines' => 'actividades',
+        'lines.*.catalog_item_id' => 'actividad del catálogo',
+        'lines.*.diagnosis_type' => 'tipo de diagnóstico',
+        'lines.*.lab' => 'valor LAB',
+    ],
+];

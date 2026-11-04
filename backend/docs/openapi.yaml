@@ -1,0 +1,468 @@
+openapi: 3.1.0
+info:
+  title: Kay Care API
+  version: v1
+  description: |
+    API v1 de Kay Care (apoyo a la documentación de enfermería, controles CRED).
+
+    **Entorno DEMO**: datos ficticios, catálogo HIS con códigos `DEMO-*` NO oficiales
+    (`verification_status: draft`, `source: demo`). No válido para uso clínico.
+
+    Autenticación: Laravel Sanctum SPA (cookie de sesión + CSRF). El cliente debe:
+    1. `GET /sanctum/csrf-cookie` (fija la cookie `XSRF-TOKEN`).
+    2. Enviar las peticiones con `withCredentials: true` y `withXSRFToken: true`
+       (Axios copia `XSRF-TOKEN` al header `X-XSRF-TOKEN`).
+    3. Enviar siempre `Accept: application/json`.
+
+    Errores:
+    - `401` sesión inexistente o expirada → `{message}`.
+    - `403` sin permiso (policy) → `{message}`.
+    - `404` recurso o ruta inexistente → `{message}` (nunca HTML).
+    - `419` token CSRF inválido / sesión expirada → `{message}`.
+    - `422` validación → `{message, errors: {campo: [mensajes]}}`.
+    - `429` demasiadas solicitudes → `{message}`.
+
+    Campos adicionales (aditivos, documentados, no rompen el contrato):
+    `Patient.created_at/updated_at`, `Encounter.age_at_encounter/revision/created_at/updated_at`,
+    `HisSuggestion.rationale/rule_code/catalog_version`, `his-preview.validation_scope`.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Desarrollo local (el SPA corre en http://localhost:5173)
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Patients
+  - name: Encounters
+  - name: HIS
+  - name: Documents
+
+components:
+  securitySchemes:
+    sanctumSession:
+      type: apiKey
+      in: cookie
+      name: kay-care-session
+      description: Cookie de sesión de Laravel (HttpOnly) + header X-XSRF-TOKEN en peticiones mutantes.
+
+  schemas:
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+
+    ValidationError:
+      type: object
+      required: [message, errors]
+      properties:
+        message: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+      example:
+        message: Ya existe un paciente con ese número de historia clínica.
+        errors:
+          chart_number: [Ya existe un paciente con ese número de historia clínica.]
+
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [nurse, admin] }
+
+    PatientWrite:
+      type: object
+      description: |
+        POST: obligatorios chart_number, first_name, last_name, birth_date, sex.
+        PATCH: cualquier subconjunto. document_type y document_number van juntos
+        (ambos null o ambos presentes). DNI = 8 dígitos. Un recién nacido puede no tener documento.
+      properties:
+        chart_number: { type: string, maxLength: 30, pattern: '^[A-Za-z0-9\-/]+$', description: Se normaliza a mayúsculas. Único. }
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 150 }
+        birth_date: { type: string, format: date, description: 'YYYY-MM-DD, no futura, >= 1900-01-01' }
+        sex: { type: string, enum: [F, M, X] }
+        document_type: { type: [string, 'null'], enum: [DNI, CE, PASAPORTE, CNV, OTRO, null] }
+        document_number: { type: [string, 'null'], maxLength: 20, description: 'Único por tipo de documento.' }
+        locality: { type: [string, 'null'], maxLength: 150 }
+
+    Patient:
+      allOf:
+        - type: object
+          required: [id, chart_number, first_name, last_name, birth_date, sex, document_type, document_number, locality]
+          properties:
+            id: { type: string, format: uuid }
+            chart_number: { type: string }
+            first_name: { type: string }
+            last_name: { type: string }
+            birth_date: { type: string, format: date }
+            sex: { type: string, enum: [F, M, X] }
+            document_type: { type: [string, 'null'] }
+            document_number: { type: [string, 'null'] }
+            locality: { type: [string, 'null'] }
+            created_at: { type: string, format: date-time, description: Campo adicional. }
+            updated_at: { type: string, format: date-time, description: Campo adicional. }
+
+    PaginationMeta:
+      type: object
+      required: [current_page, last_page, per_page, total]
+      properties:
+        current_page: { type: integer }
+        last_page: { type: integer }
+        per_page: { type: integer, example: 15 }
+        total: { type: integer }
+
+    AgeAtEncounter:
+      type: object
+      description: Edad calculada respecto a la FECHA DE LA ATENCIÓN (no la edad actual). Campo adicional.
+      properties:
+        days: { type: integer }
+        months: { type: integer, description: Meses cumplidos }
+        years: { type: integer, description: Años cumplidos }
+        group: { type: string, enum: [neonatal, under_1_year, years_1_4, years_5_11, out_of_cred_range] }
+        label: { type: string, example: 7 meses }
+
+    EncounterWrite:
+      type: object
+      description: |
+        POST: obligatorios patient_id, type, occurred_at. PATCH: subconjunto; patient_id no puede cambiar.
+        `status` e `id` están prohibidos (422): guardar nunca marca la atención como revisada.
+      properties:
+        patient_id: { type: string, format: uuid }
+        type: { type: string, enum: [CRED] }
+        occurred_at: { type: string, format: date-time, description: 'ISO 8601 con zona horaria obligatoria, p. ej. 2026-11-04T09:30:00-05:00. No futura, no anterior al nacimiento, edad <= 11 años.' }
+        clinical_note: { type: [string, 'null'], maxLength: 5000 }
+        weight_kg: { type: [number, 'null'], minimum: 0.3, maximum: 150, description: 'máx. 3 decimales' }
+        height_cm: { type: [number, 'null'], minimum: 20, maximum: 200, description: 'máx. 1 decimal' }
+        hb_g_dl: { type: [number, 'null'], minimum: 3, maximum: 25, description: 'máx. 1 decimal' }
+
+    Encounter:
+      type: object
+      required: [id, patient_id, type, occurred_at, clinical_note, weight_kg, height_cm, hb_g_dl, status]
+      properties:
+        id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid }
+        type: { type: string, enum: [CRED] }
+        occurred_at: { type: string, format: date-time, description: Con el desplazamiento horario original. }
+        clinical_note: { type: [string, 'null'] }
+        weight_kg: { type: [number, 'null'] }
+        height_cm: { type: [number, 'null'] }
+        hb_g_dl: { type: [number, 'null'] }
+        status: { type: string, enum: [draft, reviewed] }
+        age_at_encounter: { $ref: '#/components/schemas/AgeAtEncounter' }
+        revision: { type: integer, description: Campo adicional. Se incrementa en cada edición. }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    HisSuggestion:
+      type: object
+      description: |
+        Actividad POSIBLEMENTE aplicable. NUNCA viene preseleccionada ni implica que se realizó.
+        lab_suggested solo se rellena desde datos registrados (hemoglobina medida o historial de
+        controles confirmados); nunca se inventa.
+      required: [catalog_item_id, label, code, diagnosis_type_suggested, lab_suggested, verification_status, source]
+      properties:
+        catalog_item_id: { type: string, format: uuid }
+        label: { type: string }
+        code: { type: string, example: DEMO-CRED-M1 }
+        diagnosis_type_suggested: { type: [string, 'null'], enum: [P, D, R, null] }
+        lab_suggested: { type: [string, 'null'] }
+        verification_status: { type: string, enum: [draft, verified] }
+        source: { type: string, example: demo }
+        rationale: { type: string, description: Campo adicional. Explicación verificable de la sugerencia. }
+        rule_code: { type: string, description: Campo adicional. }
+        catalog_version: { type: string, description: Campo adicional. }
+
+    HisLineWrite:
+      type: object
+      required: [catalog_item_id]
+      properties:
+        catalog_item_id: { type: string, format: uuid, description: Debe pertenecer al catálogo vigente en la fecha de la atención. Sin duplicados. }
+        diagnosis_type: { type: [string, 'null'], enum: [P, D, R, null], description: Debe estar permitido por el ítem. }
+        lab: { type: [string, 'null'], maxLength: 10, description: Validado según el modo LAB del ítem. }
+
+    HisLine:
+      type: object
+      required: [id, catalog_item_id, label, code, diagnosis_type, lab, verification_status]
+      properties:
+        id: { type: string, format: uuid }
+        catalog_item_id: { type: string, format: uuid }
+        label: { type: string }
+        code: { type: string }
+        diagnosis_type: { type: [string, 'null'], enum: [P, D, R, null] }
+        lab: { type: [string, 'null'] }
+        verification_status: { type: string, enum: [draft, verified] }
+
+    HisPreview:
+      type: object
+      required: [patient, encounter, lines, warnings, validated]
+      properties:
+        patient: { $ref: '#/components/schemas/Patient' }
+        encounter: { $ref: '#/components/schemas/Encounter' }
+        lines: { type: array, items: { $ref: '#/components/schemas/HisLine' } }
+        warnings:
+          type: array
+          items: { type: string }
+          description: Problemas bloqueantes (prefijo "ERROR:") seguidos de advertencias (catálogo DEMO, borrador, etc.).
+        validated:
+          type: boolean
+          description: true = consistencia ESTRUCTURAL con el catálogo. NUNCA significa validación oficial.
+        validation_scope: { type: string, enum: [structural], description: Campo adicional. }
+
+  responses:
+    Unauthenticated:
+      description: Sesión inexistente o expirada.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Message' }, example: { message: Unauthenticated. } } }
+    Forbidden:
+      description: Sin permiso para la acción.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } }
+    NotFound:
+      description: Recurso inexistente o UUID inválido.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } }
+    CsrfMismatch:
+      description: Token CSRF inválido o sesión expirada.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Message' }, example: { message: CSRF token mismatch. } } }
+    ValidationFailed:
+      description: Error de validación.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ValidationError' } } }
+
+  parameters:
+    PatientId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EncounterId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+security:
+  - sanctumSession: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Estado del servicio (público)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, const: ok }
+                  version: { type: string, const: v1 }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Inicio de sesión (requiere cookie CSRF previa y origen SPA autorizado)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Sesión iniciada (se regenera el ID de sesión).
+          content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/User' } } } } }
+        '403': { description: La petición no proviene de un dominio stateful (SANCTUM_STATEFUL_DOMAINS)., content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { description: 'Límite de intentos (5/min por cuenta+IP, 20/min por IP).', content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Usuario autenticado
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/User' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cierra la sesión (invalida la sesión y regenera el token CSRF)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+
+  /patients:
+    get:
+      tags: [Patients]
+      summary: Búsqueda paginada (15 por página)
+      parameters:
+        - { name: search, in: query, schema: { type: string, maxLength: 100 }, description: 'Prefijo de historia clínica o documento; contiene en nombres/apellidos; "Nombre Apellido".' }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Patient' } }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    post:
+      tags: [Patients]
+      summary: Registrar paciente
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatientWrite' } } } }
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Patient' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /patients/{id}:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      tags: [Patients]
+      summary: Consultar paciente
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Patient' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Patients]
+      summary: Editar paciente (parcial, con historial de revisiones)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatientWrite' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Patient' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /patients/{id}/encounters:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      tags: [Patients, Encounters]
+      summary: Historial de atenciones (más reciente primero, máx. 200)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/Encounter' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /encounters:
+    post:
+      tags: [Encounters]
+      summary: Registrar atención (siempre en estado draft)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EncounterWrite' } } } }
+      responses:
+        '201': { description: Creada, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Encounter' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /encounters/{id}:
+    parameters: [{ $ref: '#/components/parameters/EncounterId' }]
+    get:
+      tags: [Encounters]
+      summary: Consultar atención
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Encounter' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Encounters]
+      summary: Editar atención (solo responsable o admin, solo en draft; guarda snapshot previo)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EncounterWrite' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Encounter' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /encounters/{id}/his-suggestions:
+    parameters: [{ $ref: '#/components/parameters/EncounterId' }]
+    get:
+      tags: [HIS]
+      summary: Sugerencias HIS según edad en la atención y datos registrados (no preseleccionadas)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/HisSuggestion' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /encounters/{id}/his-lines:
+    parameters: [{ $ref: '#/components/parameters/EncounterId' }]
+    put:
+      tags: [HIS]
+      summary: Reemplaza el conjunto de actividades CONFIRMADAS por la enfermera (lista vacía = limpiar)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                lines: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/HisLineWrite' } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/HisLine' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '419': { $ref: '#/components/responses/CsrfMismatch' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /encounters/{id}/his-preview:
+    parameters: [{ $ref: '#/components/parameters/EncounterId' }]
+    get:
+      tags: [HIS]
+      summary: Vista previa estructurada del registro HIS con validación estructural y advertencias
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/HisPreview' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /encounters/{id}/documents/his.pdf:
+    parameters: [{ $ref: '#/components/parameters/EncounterId' }]
+    get:
+      tags: [Documents]
+      summary: PDF demostrativo de la vista HIS (A4, marca de agua DEMO, generado en memoria)
+      responses:
+        '200':
+          description: PDF binario (Content-Disposition attachment, Cache-Control no-store)
+          content: { application/pdf: { schema: { type: string, format: binary } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /encounters/{id}/documents/clinical-note.pdf:
+    parameters: [{ $ref: '#/components/parameters/EncounterId' }]
+    get:
+      tags: [Documents]
+      summary: PDF demostrativo de la nota clínica estructurada
+      responses:
+        '200':
+          description: PDF binario
+          content: { application/pdf: { schema: { type: string, format: binary } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
