@@ -16,6 +16,7 @@ import {
 } from '@lucide/vue'
 import { useAuthStore } from '@/features/auth/store'
 import { isDemo } from '@/lib/api'
+import { isDemonstrationData, environmentMessage } from '@/app/environment'
 import { initials } from '@/lib/format'
 import { useToast } from '@/composables/useToast'
 import { confirmAllUnsaved } from '@/composables/useUnsavedChanges'
@@ -156,7 +157,7 @@ async function logout() {
           }}</strong>
         </div>
         <div class="topbar-user">
-          <span v-if="isDemo" class="badge badge-demo">DEMO</span
+          <span v-if="isDemonstrationData" class="badge badge-demo">DEMO</span
           ><span v-else class="secure-label"><ShieldCheck :size="15" /> Sesión activa</span
           ><span class="user-avatar">{{ initials(auth.user?.name || 'Enfermera') }}</span>
           <div class="user-info">
@@ -176,10 +177,8 @@ async function logout() {
           </button>
         </div>
       </header>
-      <div v-if="isDemo" class="demo-ribbon">
-        <span class="status-dot" /><span
-          >DEMO · Solo datos ficticios. Se reinician al recargar o cerrar sesión.</span
-        >
+      <div v-if="isDemonstrationData" class="demo-ribbon">
+        <span class="status-dot" /><span>{{ environmentMessage }}</span>
       </div>
       <main id="contenido" class="main-content">
         <RouterView v-slot="{ Component }"

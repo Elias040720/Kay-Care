@@ -92,7 +92,7 @@ const hasDrafts = computed(() =>
               :id="`lab-${index}`"
               v-model="choice.lab"
               type="text"
-              maxlength="100"
+              maxlength="10"
               autocomplete="off"
               placeholder="Ingresa un valor validado"
               :disabled="busy"

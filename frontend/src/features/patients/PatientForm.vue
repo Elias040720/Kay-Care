@@ -2,7 +2,8 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { Save, ShieldCheck } from '@lucide/vue'
-import { api, isDemo } from '@/lib/api'
+import { api } from '@/lib/api'
+import { isDemonstrationData as isDemo } from '@/app/environment'
 import { normalizeError } from '@/lib/api/errors'
 import type { Patient, PatientWrite } from '@/types'
 import { patientSchema } from '@/lib/validation/patient'
@@ -108,7 +109,7 @@ defineExpose({ canClose })
           :aria-invalid="!!errors.chart_number"
           aria-describedby="error-chart"
           placeholder="Ej. DEMO-HC-020"
-          maxlength="50"
+          maxlength="30"
           autocomplete="off"
         /><span id="error-chart" class="field-error">{{ errors.chart_number }}</span>
       </div>
@@ -130,7 +131,7 @@ defineExpose({ canClose })
           v-model="form.last_name"
           :aria-invalid="!!errors.last_name"
           aria-describedby="error-last"
-          maxlength="100"
+          maxlength="150"
           autocomplete="off"
         /><span id="error-last" class="field-error">{{ errors.last_name }}</span>
       </div>
@@ -140,6 +141,7 @@ defineExpose({ canClose })
           id="patient-birth"
           v-model="form.birth_date"
           type="date"
+          min="1900-01-01"
           :max="todayInPeru()"
           :aria-invalid="!!errors.birth_date"
           aria-describedby="error-birth"
@@ -170,15 +172,8 @@ defineExpose({ canClose })
           <option value="DNI">DNI</option>
           <option value="CE">Carné de extranjería</option>
           <option value="PASAPORTE">Pasaporte</option>
-          <option value="OTRO">Otro</option>
-          <option
-            v-if="
-              form.document_type && !['DNI', 'CE', 'PASAPORTE', 'OTRO'].includes(form.document_type)
-            "
-            :value="form.document_type"
-          >
-            {{ form.document_type }}
-          </option></select
+          <option value="CNV">Certificado de nacido vivo</option>
+          <option value="OTRO">Otro</option></select
         ><span id="error-document-type" class="field-error">{{ errors.document_type }}</span>
       </div>
       <div class="field">
@@ -188,7 +183,8 @@ defineExpose({ canClose })
           v-model="form.document_number"
           :aria-invalid="!!errors.document_number"
           aria-describedby="error-document"
-          maxlength="30"
+          minlength="4"
+          maxlength="20"
           autocomplete="off"
         /><span id="error-document" class="field-error">{{ errors.document_number }}</span>
       </div>
@@ -199,7 +195,7 @@ defineExpose({ canClose })
           v-model="form.locality"
           :aria-invalid="!!errors.locality"
           aria-describedby="error-locality"
-          maxlength="160"
+          maxlength="150"
           autocomplete="off"
         /><span id="error-locality" class="field-error">{{ errors.locality }}</span>
       </div>

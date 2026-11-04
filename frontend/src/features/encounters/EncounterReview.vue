@@ -8,7 +8,8 @@ import {
   FileSpreadsheet,
   ShieldCheck,
 } from '@lucide/vue'
-import { api, isDemo } from '@/lib/api'
+import { api } from '@/lib/api'
+import { isDemonstrationData as isDemo } from '@/app/environment'
 import { normalizeError } from '@/lib/api/errors'
 import { useToast } from '@/composables/useToast'
 import { ageAt, dateLabel, fullName } from '@/lib/format'
@@ -162,7 +163,7 @@ async function download(id: string, kind: DocumentKind) {
         </div>
         <span :class="['badge', preview.validated ? 'badge-success' : 'badge-warning']"
           ><CheckCircle2 v-if="preview.validated" :size="14" />{{
-            preview.validated ? 'Validado por el servidor' : 'Pendiente de validación'
+            preview.validated ? 'Consistencia estructural comprobada' : 'Pendiente de validación'
           }}</span
         >
       </div>
@@ -225,8 +226,8 @@ async function download(id: string, kind: DocumentKind) {
         <p>No se confirmaron actividades HIS para esta atención.</p>
       </div>
       <p class="review-disclaimer">
-        La edad se muestra como referencia. Las reglas HIS y el estado de validación dependen del
-        servidor y del catálogo vigente.
+        La comprobación estructural revisa la consistencia del registro. No certifica su validez
+        clínica ni normativa. El catálogo actual es demostrativo y sus códigos no son oficiales.
       </p>
     </section>
   </div>

@@ -203,6 +203,58 @@ class HisTest extends TestCase
         $this->assertDatabaseCount('his_lines', 0);
     }
 
+    public function test_empty_lines_clear_activities_without_a_current_catalog_but_preview_remains_invalid(): void
+    {
+        $user = $this->actingAsNurse();
+        $encounter = $this->encounterAt($this->patientBornOn('2026-01-15', $user), '2026-09-01 09:00', $user);
+        $this->confirm($encounter, 'DEMO-CRED-M1', 'D', '7');
+        HisCatalogVersion::query()->update(['is_active' => false]);
+
+        $this->spa()->getJson("/api/v1/encounters/{$encounter->id}/his-suggestions")
+            ->assertOk()->assertExactJson(['data' => []]);
+
+        $this->spa()->putJson("/api/v1/encounters/{$encounter->id}/his-lines", ['lines' => []])
+            ->assertOk()->assertExactJson(['data' => []]);
+        $this->assertDatabaseMissing('his_lines', ['encounter_id' => $encounter->id]);
+
+        // An already empty record can also continue to review without a catalog.
+        $this->spa()->putJson("/api/v1/encounters/{$encounter->id}/his-lines", ['lines' => []])
+            ->assertOk()->assertExactJson(['data' => []]);
+
+        $preview = $this->spa()->getJson("/api/v1/encounters/{$encounter->id}/his-preview")
+            ->assertOk()
+            ->assertJsonPath('data.validated', false)
+            ->assertJsonPath('data.validation_scope', 'structural')
+            ->assertJsonPath('data.encounter.status', 'draft')
+            ->assertJsonCount(0, 'data.lines');
+        $this->assertContains(
+            'ERROR: No existe un catálogo HIS vigente para la fecha de la atención.',
+            $preview->json('data.warnings'),
+        );
+    }
+
+    public function test_nonempty_lines_without_a_current_catalog_are_rejected_without_changing_saved_activities(): void
+    {
+        $user = $this->actingAsNurse();
+        $encounter = $this->encounterAt($this->patientBornOn('2026-01-15', $user), '2026-09-01 09:00', $user);
+        $this->confirm($encounter, 'DEMO-CRED-M1', 'D', '7');
+        $saved = HisLine::query()->where('encounter_id', $encounter->id)->firstOrFail();
+        HisCatalogVersion::query()->update(['is_active' => false]);
+
+        $this->spa()->putJson("/api/v1/encounters/{$encounter->id}/his-lines", ['lines' => [
+            ['catalog_item_id' => $this->catalogItem('DEMO-DESARROLLO')->id, 'diagnosis_type' => null, 'lab' => null],
+        ]])->assertStatus(422)->assertJsonValidationErrors('lines');
+
+        $this->assertSame(1, HisLine::query()->where('encounter_id', $encounter->id)->count());
+        $this->assertDatabaseHas('his_lines', [
+            'id' => $saved->id,
+            'encounter_id' => $encounter->id,
+            'catalog_item_id' => $saved->catalog_item_id,
+            'diagnosis_type' => 'D',
+            'lab' => '7',
+        ]);
+    }
+
     public function test_rejects_duplicate_lines(): void
     {
         $user = $this->actingAsNurse();

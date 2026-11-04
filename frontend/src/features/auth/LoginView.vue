@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { HeartPulse, ArrowRight, ShieldCheck, Check, Eye, EyeOff } from '@lucide/vue'
 import { z } from 'zod'
@@ -39,7 +39,12 @@ async function submit(demo = false) {
         : '/',
     )
   } catch (e) {
-    error.value = normalizeError(e).message
+    const failure = normalizeError(e)
+    error.value = failure.message
+    for (const [field, messages] of Object.entries(failure.fields))
+      errors.value[field] = messages.join(' ')
+    await nextTick()
+    document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
   } finally {
     busy.value = false
   }
@@ -73,8 +78,9 @@ async function submit(demo = false) {
     </section>
     <section class="login-form-area">
       <div class="login-form">
-        <span v-if="isDemo" class="badge badge-demo">ENTORNO DEMO</span>
-        <p v-else class="eyebrow">BIENVENIDA A TU ESPACIO</p>
+        <span class="badge badge-demo">{{
+          isDemo ? 'ENTORNO DEMO' : 'API LOCAL · DATOS DEMO'
+        }}</span>
         <h2>{{ isDemo ? 'Conoce una forma más simple de cuidar.' : 'Qué bueno tenerte aquí.' }}</h2>
         <p class="login-intro">
           {{

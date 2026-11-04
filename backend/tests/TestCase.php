@@ -11,6 +11,20 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    public function createApplication(): \Illuminate\Foundation\Application
+    {
+        $app = parent::createApplication();
+        // Guard before RefreshDatabase can migrate an inherited database.
+        if (! $app->environment('testing')
+            || config('database.default') !== 'sqlite'
+            || config('database.connections.sqlite.database') !== ':memory:'
+            || config('database.connections.sqlite.url')) {
+            throw new \LogicException('Las pruebas requieren SQLite :memory: y APP_ENV=testing. No se modificó ninguna base de datos.');
+        }
+
+        return $app;
+    }
+
     public const SPA_ORIGIN = 'http://localhost:5173';
 
     /** Headers a browser sends from the Vue SPA (stateful Sanctum request). */

@@ -78,7 +78,8 @@ test('API real: CSRF, error 422, error 500 recuperable, sin fallback demo', asyn
   expect(requests.indexOf('GET /sanctum/csrf-cookie')).toBeLessThan(
     requests.indexOf('POST /api/v1/auth/login'),
   )
-  await expect(page.getByText('DEMO', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('DEMO', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Explorar demostración' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Pacientes', exact: true }).click()
   await page.getByRole('button', { name: 'Registrar paciente' }).click()
   await page.getByLabel('N.º de historia clínica *').fill('PRUEBA-REAL')

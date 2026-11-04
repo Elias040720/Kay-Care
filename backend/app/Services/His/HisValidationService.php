@@ -36,6 +36,12 @@ class HisValidationService
      */
     public function lineErrors(Encounter $encounter, array $lines): array
     {
+        // Clearing confirmed activities does not require a current catalog.
+        // The preview still reports the missing catalog and remains invalid.
+        if ($lines === []) {
+            return [];
+        }
+
         $version = $this->catalogs->forEncounter($encounter);
         $errors = [];
 

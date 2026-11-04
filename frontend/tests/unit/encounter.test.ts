@@ -53,6 +53,44 @@ describe('Formulario CRED', () => {
       encounterFormSchema.safeParse({ ...validForm, occurred_at: '2025-02-31T10:30' }).success,
     ).toBe(false)
   })
+  it.each([
+    ['weight_kg', '0.3', '150', '0.301'],
+    ['height_cm', '20', '200', '20.1'],
+    ['hb_g_dl', '3', '25', '3.1'],
+  ])(
+    'acepta extremos y precisión admitidos por el servidor para %s',
+    (field, min, max, decimal) => {
+      for (const value of [min, max, decimal]) {
+        expect(encounterFormSchema.safeParse({ ...validForm, [field]: value }).success).toBe(true)
+      }
+    },
+  )
+  it.each([
+    ['weight_kg', '0.299', '150.001', '10.1234'],
+    ['height_cm', '19.9', '200.1', '20.11'],
+    ['hb_g_dl', '2.9', '25.1', '3.11'],
+  ])(
+    'rechaza fuera de límites o precisión excesiva para %s',
+    (field, below, above, excessivePrecision) => {
+      for (const value of [below, above, excessivePrecision]) {
+        expect(encounterFormSchema.safeParse({ ...validForm, [field]: value }).success).toBe(false)
+      }
+    },
+  )
+  it('mantiene mediciones vacías como null y no redondea silenciosamente', () => {
+    expect(
+      encounterFormSchema.parse({ ...validForm, weight_kg: ' ', height_cm: '20.10', hb_g_dl: '' }),
+    ).toMatchObject({ weight_kg: null, height_cm: 20.1, hb_g_dl: null })
+    expect(encounterFormSchema.safeParse({ ...validForm, height_cm: '20.15' }).success).toBe(false)
+  })
+  it('acepta 5000 caracteres de notas y rechaza el exceso', () => {
+    expect(
+      encounterFormSchema.safeParse({ ...validForm, clinical_note: 'x'.repeat(5000) }).success,
+    ).toBe(true)
+    expect(
+      encounterFormSchema.safeParse({ ...validForm, clinical_note: 'x'.repeat(5001) }).success,
+    ).toBe(false)
+  })
 })
 describe('Confirmación HIS', () => {
   const suggestion: HisChoice = {
@@ -77,11 +115,17 @@ describe('Confirmación HIS', () => {
   })
   it('envía solo campos del contrato para selecciones explícitas', () => {
     expect(
-      selectedHisLines([
-        { ...suggestion, selected: true, diagnosis_type: 'R', lab: ' valor confirmado ' },
-      ]),
+      selectedHisLines([{ ...suggestion, selected: true, diagnosis_type: 'R', lab: ' LAB-DEMO ' }]),
     ).toEqual([
-      { catalog_item_id: suggestion.catalog_item_id, diagnosis_type: 'R', lab: 'valor confirmado' },
+      { catalog_item_id: suggestion.catalog_item_id, diagnosis_type: 'R', lab: 'LAB-DEMO' },
     ])
+  })
+  it('acepta hasta 10 caracteres LAB y rechaza 11 sin truncarlos', () => {
+    expect(selectedHisLines([{ ...suggestion, selected: true, lab: 'D'.repeat(10) }])[0]?.lab).toBe(
+      'D'.repeat(10),
+    )
+    expect(() =>
+      selectedHisLines([{ ...suggestion, selected: true, lab: 'D'.repeat(11) }]),
+    ).toThrow('10 caracteres')
   })
 })

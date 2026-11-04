@@ -27,13 +27,13 @@ export default defineConfig({
     {
       command: 'node node_modules/vite/bin/vite.js --host localhost --port 5173 --strictPort',
       url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: { VITE_API_MODE: 'mock' },
     },
     {
       command: 'node node_modules/vite/bin/vite.js --host localhost --port 5174 --strictPort',
       url: 'http://localhost:5174',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: { VITE_API_MODE: 'real', VITE_API_BASE_URL: 'http://localhost:8000' },
     },
   ],

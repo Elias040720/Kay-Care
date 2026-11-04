@@ -2,6 +2,8 @@
 
 Aplicación Vue 3 para registro de pacientes, atenciones CRED, confirmación de actividades HIS y consulta de documentos. Interfaz en español peruano, con navegación responsive desde 360 px y un modo de demostración independiente del backend.
 
+**Integrada con Laravel en `main`.** Para preparar y arrancar ambos servidores en Windows, usa los scripts del [README principal](../README.md). La prueba contra Laravel vivo y SQLite aislado está documentada en [INTEGRATION.md](../docs/INTEGRATION.md). El transporte `real` sigue usando datos y documentos DEMO en este MVP.
+
 ## Requisitos e instalación
 
 - **Node.js 24 LTS recomendado**. También Node 22.12+; Node 20.18 del entorno original no es compatible con las herramientas actuales.
@@ -15,7 +17,7 @@ npm install
 npm run dev
 ```
 
-Abre <http://localhost:5173>. El modo predeterminado es `mock`, sin necesidad de crear `.env`. Las versiones exactas están fijadas en `package-lock.json`; las instalaciones posteriores también admiten `npm ci`.
+Abre <http://localhost:5173>. Sin variables de entorno, el modo predeterminado es `mock`; el setup integrado crea `.env.local` en modo `real`. Las versiones exactas están fijadas en `package-lock.json`; las instalaciones posteriores también admiten `npm ci`.
 
 Para este entorno Windows, existe Node 24 en el runtime de Codex. Si `node --version` muestra 20.18, puede usarse temporalmente sin modificar el sistema:
 
@@ -104,7 +106,7 @@ npm run preview    # sirve dist/ en localhost:4173
 npm audit          # revisión de dependencias
 ```
 
-Playwright inicia servidores separados: demo en 5173 y real en 5174. Puede reutilizar servidores locales existentes; asegúrate de que cada puerto tenga el modo correcto. La suite `real-contract` intercepta las respuestas HTTP con datos ficticios: prueba el adaptador real y la UI, **no acredita integración con un servidor Laravel vivo**. No ejecuta migraciones ni modifica el backend.
+Playwright inicia servidores separados: demo en 5173 y real en 5174; exige ambos puertos libres para evitar reutilizar un servidor en otro modo. La suite `real-contract` intercepta las respuestas HTTP con datos ficticios: prueba el adaptador real y la UI, **no acredita integración con un servidor Laravel vivo**. No ejecuta migraciones ni modifica el backend. La suite separada `tests/integration/`, ejecutada mediante `scripts/test-integration.ps1` desde la raíz, sí usa Laravel real en 8001 y Vue en 5175, con una base ficticia aislada.
 
 Los reportes de Playwright y capturas quedan en `playwright-report/`, `test-results/` y `qa-output/`, excluidos de Git. Las pruebas usan únicamente fixtures y no deben ejecutarse contra datos de pacientes reales. No se habilitan trazas que almacenen cuerpos clínicos.
 
@@ -134,7 +136,7 @@ tests/unit/            validación y adaptadores
 tests/e2e/             recorridos y accesibilidad con Playwright/axe
 ```
 
-Los componentes consumen `ApiAdapter` y nunca llaman Axios ni fixtures. `isDemo` se usa solamente para rotular el entorno y las descargas. TanStack Vue Query gestiona carga/error/caché e invalidación después de mutaciones; Pinia gestiona únicamente la sesión. Los datos clínicos no se envían a analytics, consola ni APIs de IA. Las rutas de pantallas se cargan de forma diferida.
+Los componentes consumen `ApiAdapter` y nunca llaman Axios ni fixtures. `isDemo` identifica el adaptador en memoria; `isDemonstrationData` mantiene los avisos de datos y documentos DEMO también al conectar Laravel. TanStack Vue Query gestiona carga/error/caché e invalidación después de mutaciones; Pinia gestiona únicamente la sesión. Los datos clínicos no se envían a analytics, consola ni APIs de IA. Las rutas de pantallas se cargan de forma diferida.
 
 El diseño usa fuentes de sistema y SVG/CSS propios para la ilustración decorativa. Lucide se importa desde su paquete Vue actual `@lucide/vue`. No hay fuentes privadas, fotografías de personas ni recursos externos de diseño.
 
@@ -147,6 +149,6 @@ El diseño usa fuentes de sistema y SVG/CSS propios para la ilustración decorat
 - No hay recuperación de contraseña, eliminación de pacientes, citas, vacunas, firma digital ni sincronización offline: el contrato no contempla esas funciones.
 - Sin ETag/versionado/idempotency-key en el contrato, no es posible garantizar resolución de ediciones concurrentes ni reintentos de creación después de una respuesta de red ambigua. Las mutaciones no se reintentan automáticamente.
 - Los borradores guardados persisten en Laravel en modo real; cambios aún no guardados no sobreviven una sesión expirada o el cierre forzado de la página.
-- Para servir `dist/`, el hosting debe redirigir rutas SPA a `index.html`. No se modificó hosting ni configuración raíz del repositorio.
+- Para servir `dist/`, el hosting debe redirigir rutas SPA a `index.html`. No se realizó despliegue de producción.
 
 Consulta `docs/VALIDATION.md` para el registro de comprobaciones realizadas en esta entrega.

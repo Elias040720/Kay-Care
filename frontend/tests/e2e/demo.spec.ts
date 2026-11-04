@@ -19,7 +19,7 @@ test('flujo completo: registro, edición, CRED, HIS explícito, PDF e historial'
   await page.getByRole('button', { name: 'Registrar paciente' }).click()
   await page.getByLabel('N.º de historia clínica *').fill('DEMO-E2E')
   await page.getByLabel('Nombres *', { exact: true }).fill('Paciente')
-  await page.getByLabel('Apellidos *').fill('Ficticio E2E')
+  await page.getByLabel('Apellidos *').fill('Ficticio Prueba')
   await page.getByLabel('Fecha de nacimiento *').fill('2025-01-15')
   await page.getByRole('button', { name: 'Guardar paciente' }).click()
   await expect(page.getByRole('dialog')).not.toBeVisible()

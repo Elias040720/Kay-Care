@@ -10,13 +10,24 @@ export interface EncounterForm {
   hb_g_dl: string
 }
 
-const optionalMeasurement = z
-  .string()
-  .transform((value) => (value.trim() === '' ? null : Number(value)))
-  .refine(
-    (value) => value === null || (Number.isFinite(value) && value > 0),
-    'Ingresa un número mayor que cero o deja el campo vacío.',
-  )
+const optionalMeasurement = (min: number, max: number, decimals: number, unit: string) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === '' || /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value),
+      'Ingresa un número decimal válido o deja el campo vacío.',
+    )
+    .transform((value) => (value === '' ? null : Number(value)))
+    .refine(
+      (value) => value === null || (Number.isFinite(value) && value >= min && value <= max),
+      `Registra un valor entre ${min} y ${max} ${unit}, o deja el campo vacío.`,
+    )
+    .refine(
+      (value) =>
+        value === null || (Number.isFinite(value) && Number(value.toFixed(decimals)) === value),
+      `Usa como máximo ${decimals === 1 ? '1 decimal' : `${decimals} decimales`}.`,
+    )
 
 export const encounterFormSchema = z.object({
   occurred_at: z
@@ -30,10 +41,10 @@ export const encounterFormSchema = z.object({
         date.getTime() <= Date.now()
       )
     }, 'La fecha de atención debe ser válida y no puede estar en el futuro.'),
-  clinical_note: z.string().trim().max(10000, 'Las notas pueden contener hasta 10 000 caracteres.'),
-  weight_kg: optionalMeasurement,
-  height_cm: optionalMeasurement,
-  hb_g_dl: optionalMeasurement,
+  clinical_note: z.string().trim().max(5000, 'Las notas pueden contener hasta 5 000 caracteres.'),
+  weight_kg: optionalMeasurement(0.3, 150, 3, 'kg'),
+  height_cm: optionalMeasurement(20, 200, 1, 'cm'),
+  hb_g_dl: optionalMeasurement(3, 25, 1, 'g/dL'),
 })
 
 export function parseEncounterForm(form: EncounterForm, patient: Patient): EncounterWrite {
@@ -67,7 +78,7 @@ export interface HisChoice extends HisSuggestion {
 const hisLineSchema = z.object({
   catalog_item_id: z.string().min(1),
   diagnosis_type: z.enum(['P', 'D', 'R']).nullable(),
-  lab: z.string().trim().max(100, 'El valor LAB admite hasta 100 caracteres.').nullable(),
+  lab: z.string().trim().max(10, 'El valor LAB admite hasta 10 caracteres.').nullable(),
 })
 
 /** Unchecked suggestions never become submitted activities. */

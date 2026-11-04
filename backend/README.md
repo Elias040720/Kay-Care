@@ -18,6 +18,8 @@ Documentación: [`docs/openapi.yaml`](docs/openapi.yaml) · [`docs/architecture.
 
 ## Instalación
 
+En el repositorio integrado, la opción recomendada para Windows es ejecutar `scripts/setup.ps1` y `scripts/start.ps1` desde la raíz: preparan y arrancan Laravel y Vue juntos. Consulta el [README principal](../README.md). Los comandos siguientes sirven para configurar únicamente el backend; no regeneres una clave existente.
+
 ```bash
 cd backend
 composer install
@@ -75,10 +77,10 @@ CREATE DATABASE kaycare CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```bash
 php artisan migrate               # crea las tablas
 php artisan db:seed               # catálogo DEMO + cuentas demo (.env) + 3 pacientes ficticios
-php artisan migrate:fresh --seed  # reinicia la BD de desarrollo
 ```
 
 `db:seed` se niega a ejecutarse con `APP_ENV=production` o `KAYCARE_MODE` distinto de `demo`.
+Los seeders actualizan las cuentas y registros demo existentes; el setup integrado solo los ejecuta cuando crea una base nueva para conservar los datos ya guardados.
 
 ## Ejecución local
 
@@ -87,7 +89,7 @@ php artisan serve --host=localhost --port=8000
 ```
 
 - API: `http://localhost:8000/api/v1` (estado: `GET /api/v1/health`)
-- Frontend Vue (otro repositorio o carpeta): `http://localhost:5173`
+- Frontend Vue (`../frontend` en este repositorio): `http://localhost:5173`
 
 ## Sanctum SPA y CORS
 

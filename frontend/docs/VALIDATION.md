@@ -1,5 +1,7 @@
 # Registro de verificación
 
+**Actualización de integración en `main`:** consulta [el registro integrado](../../docs/INTEGRATION.md) para las pruebas actuales contra Laravel vivo, cookies/CORS, PDF y persistencia. El registro que sigue conserva la validación original de la rama frontend, anterior al merge.
+
 Fecha: 4 de noviembre de 2026, zona America/Bogota. Worktree `Kay-Care-frontend`, rama `feat/codex-frontend`. Todos los cambios de código están dentro de `frontend/`.
 
 Entorno de ejecución: Windows, Node 24.22.1, npm 10.8.2, Chrome. Se actualizó el conjunto de dependencias tras detectar vulnerabilidades en las versiones iniciales de Vitest/Zod. La instalación final no reporta vulnerabilidades conocidas en `npm audit`.
