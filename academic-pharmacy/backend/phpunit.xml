@@ -19,6 +19,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Clave exclusiva de pruebas automatizadas (no se usa en ningún entorno real). -->
+        <env name="APP_KEY" value="base64:OyueOwavv/ypF8WxVAFGuhvpSt0K6x/xX+KI+nVxS8E="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

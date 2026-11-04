@@ -1,0 +1,115 @@
+# Kay Care Farmacia — entorno local completo (proyecto académico)
+#
+#   cd academic-pharmacy
+#   docker compose up --build
+#   → http://localhost:8088
+#
+# Aislamiento: proyecto Compose, red, volumen, base de datos, usuario,
+# cookie de sesión y APP_KEY propios. Nada se comparte con el sistema
+# clínico Kay Care Enfermería.
+name: kaycare-pharmacy
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kaycare_pharmacy
+      POSTGRES_USER: pharmacy_app
+      # Valor por defecto SOLO para uso local; define PHARMACY_DB_PASSWORD en .env.
+      POSTGRES_PASSWORD: ${PHARMACY_DB_PASSWORD:-pharmacy_local_only}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    # postgres necesita estas capacidades para cambiar al usuario "postgres".
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    volumes:
+      - pharmacy_pgdata:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pharmacy_app -d kaycare_pharmacy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    <<: *hardening
+    build:
+      context: ./backend
+    image: kaycare-pharmacy-backend:local
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+      - /app/bootstrap/cache:size=8m,uid=10001,gid=10001
+    environment:
+      APP_NAME: "Kay Care Farmacia"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:8088
+      APP_KEY: ${PHARMACY_APP_KEY:-}
+      ALLOW_EPHEMERAL_APP_KEY: "true"
+      APP_LOCALE: es
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: kaycare_pharmacy
+      DB_USERNAME: pharmacy_app
+      DB_PASSWORD: ${PHARMACY_DB_PASSWORD:-pharmacy_local_only}
+      DB_SSLMODE: disable
+      SESSION_DRIVER: database
+      SESSION_LIFETIME: "60"
+      SESSION_ENCRYPT: "true"
+      SESSION_COOKIE: kcf_pharmacy_session
+      SESSION_SECURE_COOKIE: "false" # http://localhost; en Azure es true (HTTPS)
+      SESSION_SAME_SITE: lax
+      CACHE_STORE: database
+      QUEUE_CONNECTION: sync
+      SANCTUM_STATEFUL_DOMAINS: localhost:8088,127.0.0.1:8088
+      PHARMACY_ALLOWED_ORIGINS: http://localhost:8088,http://127.0.0.1:8088
+      TRUSTED_PROXIES: "*" # solo el nginx del frontend alcanza este servicio
+      RUN_MIGRATIONS: "true"
+      RUN_SEEDERS: "true"
+      PHARMACY_ADMIN_EMAIL: ${PHARMACY_ADMIN_EMAIL:-admin@farmacia.demo}
+      PHARMACY_ADMIN_PASSWORD: ${PHARMACY_ADMIN_PASSWORD:-}
+    volumes:
+      - pharmacy_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [data, web]
+
+  frontend:
+    <<: *hardening
+    build:
+      context: ./frontend
+    image: kaycare-pharmacy-frontend:local
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+      - /var/cache/nginx:size=32m,uid=101,gid=101
+      - /etc/nginx/conf.d:size=1m,uid=101,gid=101
+    environment:
+      BACKEND_UPSTREAM: http://backend:8080
+    ports:
+      - "8088:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [web]
+
+networks:
+  # Red interna: PostgreSQL no tiene salida ni puerto publicado.
+  data:
+    internal: true
+  web: {}
+
+volumes:
+  pharmacy_pgdata:
+  pharmacy_storage:

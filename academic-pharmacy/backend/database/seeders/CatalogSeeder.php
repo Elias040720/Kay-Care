@@ -29,7 +29,7 @@ class CatalogSeeder extends Seeder
 
         $categoryIds = [];
         foreach ($categories as $i => [$name, $slug, $description]) {
-            $categoryIds[$slug] = Category::query()->updateOrCreate(
+            $categoryIds[$slug] = Category::query()->firstOrCreate(
                 ['slug' => $slug],
                 ['name' => $name, 'description' => $description, 'sort_order' => $i + 1],
             )->id;
@@ -64,7 +64,9 @@ class CatalogSeeder extends Seeder
         ];
 
         foreach ($products as [$category, $sku, $name, $brand, $presentation, $price, $stock, $illustration, $featured, $summary]) {
-            $product = Product::query()->updateOrCreate(
+            // firstOrCreate: re-ejecutar el seeder (p. ej. en cada arranque del contenedor)
+            // nunca sobrescribe stock ni cambios hechos desde la administración.
+            $product = Product::query()->firstOrCreate(
                 ['sku' => $sku],
                 [
                     'category_id' => $categoryIds[$category],
