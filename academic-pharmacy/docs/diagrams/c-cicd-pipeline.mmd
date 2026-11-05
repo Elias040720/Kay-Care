@@ -1,0 +1,35 @@
+%% (C) Pipeline CI/CD — workflows pharmacy-ci.yml y pharmacy-deploy.yml
+flowchart TD
+    dev([Commit / Pull Request]) --> filter{¿Cambios en academic-pharmacy/<br/>o pharmacy-*.yml?}
+    filter -- No --> skip[No se ejecuta · el sistema clínico no se ve afectado]
+    filter -- Sí --> ci
+
+    subgraph ci [pharmacy-ci]
+        perm1[/permisos: contents read/]
+        be[Backend · Pint + PHPUnit PostgreSQL 16 y SQLite + composer audit]
+        fe[Frontend · ESLint + vue-tsc + Vitest + build + npm audit]
+        tf[Terraform · fmt -check + validate demo/ha]
+        al[actionlint · sintaxis de workflows]
+        img[Imágenes Docker · compose up --wait<br/>smoke test · concurrencia · persistencia]
+        be --> img
+        fe --> img
+    end
+
+    img --> main{¿push a main?}
+    main -- No --> done1([Fin · resultados en el PR])
+    main -- Sí --> push[Publicar en GHCR<br/>packages: write · etiqueta sha-xxxxxxx]
+
+    push --> manual([workflow_dispatch manual<br/>entorno + etiqueta + plan/apply])
+    manual --> plan
+
+    subgraph cd [pharmacy-deploy]
+        perm2[/permisos: id-token write · contents read/] --> plan
+        plan[Plan · OIDC → Azure · estado remoto cifrado<br/>Environment pharmacy-ENV-plan]
+        plan --> artifact[(Artefacto tfplan)]
+        artifact --> gate{{Aprobación humana<br/>GitHub Environment pharmacy-ENV<br/>revisores obligatorios}}
+        gate -- Rechazado --> stop([Sin cambios en Azure])
+        gate -- Aprobado --> apply[terraform apply del plan exacto aprobado]
+        apply --> verify[Verificación: /healthz y /api/v1/store/health]
+        verify -- Falla --> alert([Job en rojo · revisar Log Analytics])
+        verify -- OK --> url([URL publicada en el resumen del job])
+    end

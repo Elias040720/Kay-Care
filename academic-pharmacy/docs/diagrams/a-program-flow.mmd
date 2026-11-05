@@ -1,0 +1,53 @@
+%% (A) Flujo del programa — Kay Care Farmacia (tienda demostrativa)
+flowchart TD
+    start([Visitante abre la tienda]) --> home[Inicio: destacados y categorías]
+    home --> catalog[Catálogo: búsqueda, filtros, orden]
+    catalog --> valid{¿Parámetros válidos?}
+    valid -- No --> err422[/422 validation_failed · mensaje en la UI/]
+    err422 --> catalog
+    valid -- Sí --> list[Listado paginado con stock]
+    list --> detail[Detalle de producto]
+    detail --> instock{¿Stock > 0?}
+    instock -- No --> soldout[Botón deshabilitado · «Agotado»]
+    instock -- Sí --> add[Añadir al carrito · tope 10 y ≤ stock]
+    add --> drawer[Drawer del carrito]
+    drawer --> cartval[POST /cart/validate · precios del servidor]
+    cartval --> issues{¿Problemas de stock?}
+    issues -- Sí --> fix[Marcar líneas · ajustar cantidades]
+    fix --> drawer
+    issues -- No --> checkout[Checkout simulado]
+    checkout --> form{¿Alias ficticio válido y aviso aceptado?}
+    form -- No --> formerr[/Errores en el formulario · sin DNI ni teléfonos/]
+    formerr --> checkout
+    form -- Sí --> key[Clave de idempotencia por contenido del carrito]
+    key --> post[POST /checkout + Idempotency-Key + X-XSRF-TOKEN]
+    post --> rate{¿Rate limit superado?}
+    rate -- Sí --> e429[/429 too_many_requests/]
+    rate -- No --> seen{¿Clave ya usada?}
+    seen -- Sí, mismo contenido --> replay[200 · se devuelve el MISMO pedido]
+    seen -- Sí, otro contenido --> e409a[/409 idempotency_conflict/]
+    seen -- No --> tx[[BEGIN · SELECT … FOR UPDATE por id ascendente]]
+    tx --> avail{¿Productos activos y stock suficiente?}
+    avail -- No --> rollback[[ROLLBACK]] --> e409b[/409 insufficient_stock · 422 product_unavailable/]
+    e409b --> fix
+    avail -- Sí --> write[Precios del servidor · pedido + líneas · descuento de stock · movimientos]
+    write --> commit[[COMMIT]]
+    commit --> race{¿Violación UNIQUE de la clave?}
+    race -- Sí --> replay
+    race -- No --> created[201 · número KCF-AAAA-NNNNNN + token]
+    replay --> confirm
+    created --> confirm[Confirmación con aviso académico]
+    e429 --> checkout
+    e409a --> checkout
+    network[/Fallo de red/] -.reintento con la misma clave.-> post
+
+    subgraph admin [Administración]
+        login[Login sin registro público] --> auth{¿Credenciales válidas?}
+        auth -- No --> loginerr[/422 genérico · 5 intentos/min/] --> login
+        auth -- Sí --> dash[Dashboard con datos demo]
+        dash --> crud[CRUD de productos · validación de imágenes]
+        dash --> stock[Ajustes de stock auditados · nunca negativo]
+        dash --> orders[Pedidos: pending→confirmed→preparing→ready→delivered]
+        orders --> cancel{¿Cancelar?}
+        cancel -- Sí --> restock[Devuelve stock en la misma transacción]
+    end

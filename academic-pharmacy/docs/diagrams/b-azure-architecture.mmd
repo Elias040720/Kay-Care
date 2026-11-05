@@ -1,0 +1,46 @@
+%% (B) Arquitectura en Azure — escenario HA (el DEMO omite VNet, ZR y HA de BD)
+flowchart LR
+    user([Navegador]) -- HTTPS 443 · TLS gestionado --> ingress
+
+    subgraph gh [GitHub]
+        repo[(Repositorio Kay-Care)] --> actions[GitHub Actions<br/>pharmacy-ci / pharmacy-deploy]
+        actions -- push imágenes sha-xxxxxxx --> ghcr[(GHCR<br/>ghcr.io)]
+    end
+
+    actions -- OIDC · sin secretos --> entra[Microsoft Entra ID<br/>identidad federada]
+    entra -- RBAC mínimo --> rg
+
+    subgraph rg [rg-kcf-ha · 3 zonas]
+        subgraph vnet [VNet 10.40.0.0/16]
+            subgraph snapps [snet-container-apps]
+                subgraph cae [Entorno ACA · zonas]
+                    ingress{{Ingress HTTPS<br/>Envoy gestionado}}
+                    subgraph web [ca-kcf-ha-web · 2–6]
+                        nginx[nginx sin root<br/>SPA Vue + CSP<br/>proxy /api]
+                    end
+                    subgraph api [ca-kcf-ha-api · 3–10 · interno]
+                        laravel[FrankenPHP + Laravel 12<br/>/api/v1/store]
+                    end
+                end
+            end
+            subgraph snpg [snet-postgres]
+                pg1[(PostgreSQL Flexible GP D2ds_v5<br/>primario · Zona 1)]
+                pg2[(Réplica en espera síncrona<br/>Zona 2)]
+            end
+        end
+        dns[Private DNS zone<br/>*.private.postgres.database.azure.com]
+        files[(Azure Files ZRS<br/>imágenes de productos)]
+        law[(Log Analytics<br/>90 días)]
+        backup[(Backups geo-redundantes<br/>35 días)]
+    end
+
+    ingress --> nginx
+    nginx -- HTTP interno al nombre de app --> laravel
+    laravel -- TLS 1.2+ · sslmode=require --> pg1
+    pg1 -. replicación síncrona .-> pg2
+    pg1 -.-> backup
+    laravel -- SMB --> files
+    laravel -.resolución privada.-> dns
+    cae -. logs consola/sistema .-> law
+    pg1 -. PostgreSQLLogs .-> law
+    ghcr -- pull de imagen --> cae
