@@ -26,7 +26,7 @@ function submitSearch() {
     <DemoBanner variant="bar" />
     <div class="border-b border-cream-200 bg-cream-50/90 backdrop-blur supports-[backdrop-filter]:bg-cream-50/75">
       <div class="container-page flex h-16 items-center gap-4">
-        <RouterLink to="/" class="flex items-center gap-2.5" aria-label="Kay Care Farmacia, inicio">
+        <RouterLink to="/" class="flex items-center gap-2.5">
           <BrandMark />
         </RouterLink>
 
@@ -57,13 +57,13 @@ function submitSearch() {
         <button
           type="button"
           class="relative inline-flex items-center gap-2 rounded-full bg-sage-600 px-4 py-2 text-sm font-medium text-cream-50 shadow-soft transition-transform hover:bg-sage-700 motion-safe:active:scale-95"
-          :aria-label="`Abrir carrito, ${cart.count} artículos`"
           data-testid="open-cart"
           @click="cart.open()"
         >
           <ShoppingBag class="h-4 w-4" aria-hidden="true" />
           <span class="hidden sm:inline">Carrito</span>
-          <span class="inline-flex min-w-[1.25rem] justify-center rounded-full bg-cream-50 px-1.5 text-xs font-semibold text-sage-700" aria-hidden="true">{{ cart.count }}</span>
+          <span class="inline-flex min-w-[1.25rem] justify-center rounded-full bg-cream-50 px-1.5 text-xs font-semibold text-sage-700">{{ cart.count }}</span>
+          <span class="sr-only">{{ cart.count === 1 ? 'artículo' : 'artículos' }} en el carrito</span>
         </button>
       </div>
     </div>

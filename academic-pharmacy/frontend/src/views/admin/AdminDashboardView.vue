@@ -74,9 +74,9 @@ const dayLabel = (iso: string) => new Intl.DateTimeFormat('es-PE', { day: '2-dig
         <section class="card p-5 xl:col-span-2" aria-labelledby="daily-title">
           <h2 id="daily-title" class="font-sans text-sm font-semibold">Ventas simuladas por día (últimos 14 días)</h2>
           <div class="mt-6 flex h-48 items-end gap-1.5" role="img" :aria-label="`Gráfico de barras de ventas diarias; máximo ${formatMoney(maxDaily)}`">
-            <div v-for="day in data.daily" :key="day.date" class="group flex flex-1 flex-col items-center justify-end gap-1">
+            <div v-for="day in data.daily" :key="day.date" class="group flex h-full flex-1 flex-col items-center justify-end gap-1">
               <div
-                class="w-full origin-bottom rounded-t-md bg-gradient-to-t from-sage-500 to-teal-300 transition-transform duration-500"
+                class="w-full min-h-[2px] origin-bottom rounded-t-md bg-gradient-to-t from-sage-500 to-teal-300 transition-transform duration-500"
                 :style="{ height: `${Math.max(2, (day.revenue_cents / maxDaily) * 100)}%` }"
                 :title="`${dayLabel(day.date)}: ${day.orders} pedidos, ${formatMoney(day.revenue_cents)}`"
               />

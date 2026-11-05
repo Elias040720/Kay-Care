@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-11-05T13:53:23.744Z",
+  "base_url": "http://localhost:8088",
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+  ],
+  "axe_violations": {
+    "inicio": [],
+    "catalogo": [],
+    "detalle": [],
+    "checkout": [],
+    "confirmacion": [],
+    "admin-dashboard": []
+  },
+  "axe_serious_or_critical": {
+    "inicio": [],
+    "catalogo": [],
+    "detalle": [],
+    "checkout": [],
+    "confirmacion": [],
+    "admin-dashboard": []
+  }
+}

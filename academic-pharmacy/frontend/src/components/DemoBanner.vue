@@ -24,7 +24,7 @@ withDefaults(defineProps<{ variant?: 'bar' | 'block' }>(), { variant: 'block' })
     <FlaskConical class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
     <div>
       <p class="text-sm font-bold tracking-wide">{{ DEMO_NOTICE }}</p>
-      <p class="mt-0.5 text-xs text-honey-600/90">
+      <p class="mt-0.5 text-xs text-honey-600">
         Productos y marcas ficticios. No se cobra, no se envía nada y no se solicitan datos personales.
       </p>
     </div>
