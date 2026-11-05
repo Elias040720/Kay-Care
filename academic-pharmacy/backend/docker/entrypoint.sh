@@ -44,8 +44,18 @@ php artisan route:cache --no-ansi >/dev/null
 # 4) Migraciones con bloqueo (--isolated) para que varias réplicas no
 #    migren a la vez. En HA se recomienda un job dedicado (ver docs).
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
-  log "Aplicando migraciones…"
-  php artisan migrate --force --isolated --no-ansi
+  # --isolated usa la tabla cache_locks, que crea la propia primera migración.
+  if php -r '
+    $dsn = sprintf("pgsql:host=%s;port=%s;dbname=%s;sslmode=%s", getenv("DB_HOST"), getenv("DB_PORT") ?: "5432", getenv("DB_DATABASE"), getenv("DB_SSLMODE") ?: "prefer");
+    $pdo = new PDO($dsn, getenv("DB_USERNAME"), getenv("DB_PASSWORD"));
+    exit($pdo->query("SELECT to_regclass(\x27public.cache_locks\x27) IS NOT NULL")->fetchColumn() ? 0 : 1);
+  ' 2>/dev/null; then
+    log "Aplicando migraciones (con bloqueo)…"
+    php artisan migrate --force --isolated --no-ansi
+  else
+    log "Primera instalación: creando esquema…"
+    php artisan migrate --force --no-ansi
+  fi
 fi
 
 if [ "${RUN_SEEDERS:-false}" = "true" ]; then
