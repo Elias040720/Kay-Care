@@ -1,0 +1,213 @@
+# Kay Care Farmacia (proyecto académico) — Integración continua.
+# Solo se ejecuta cuando cambia academic-pharmacy/ o estos workflows: no
+# interfiere con el sistema clínico Kay Care Enfermería.
+name: pharmacy-ci
+
+on:
+  push:
+    branches: [main, "feat/academic-pharmacy-**"]
+    paths:
+      - "academic-pharmacy/**"
+      - ".github/workflows/pharmacy-*.yml"
+  pull_request:
+    paths:
+      - "academic-pharmacy/**"
+      - ".github/workflows/pharmacy-*.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pharmacy-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backend:
+    name: Backend · Pint + PHPUnit (PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: academic-pharmacy/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: kcf_test
+          POSTGRES_USER: kcf_test
+          POSTGRES_PASSWORD: kcf_ci_only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kcf_test -d kcf_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_pgsql, pgsql, mbstring, intl, bcmath
+          coverage: none
+          tools: composer:v2
+      - name: Caché de Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('academic-pharmacy/backend/composer.lock') }}
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Lint (Pint)
+        run: vendor/bin/pint --test
+      - name: PHPUnit sobre PostgreSQL
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: kcf_test
+          DB_USERNAME: kcf_test
+          DB_PASSWORD: kcf_ci_only
+        run: vendor/bin/phpunit
+      - name: PHPUnit sobre SQLite (compatibilidad)
+        run: vendor/bin/phpunit
+      - name: Auditoría de dependencias
+        run: composer audit --no-dev
+
+  frontend:
+    name: Frontend · lint + tipos + Vitest + build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: academic-pharmacy/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.18"
+          cache: npm
+          cache-dependency-path: academic-pharmacy/frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Auditoría de dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
+
+  terraform:
+    name: Terraform · fmt + validate (${{ matrix.environment }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [demo, ha]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive academic-pharmacy/infra/terraform
+      - name: terraform init (sin backend) + validate
+        working-directory: academic-pharmacy/infra/terraform/environments/${{ matrix.environment }}
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  workflows:
+    name: Sintaxis de workflows (actionlint)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.4 -color .github/workflows/pharmacy-ci.yml .github/workflows/pharmacy-deploy.yml
+
+  images:
+    name: Imágenes · build + compose + smoke + concurrencia
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write # solo se usa al publicar desde main
+    env:
+      REGISTRY: ghcr.io
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nombres de imagen
+        id: meta
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          tag="sha-${GITHUB_SHA::7}"
+          echo "backend=${REGISTRY}/${owner}/kay-care-pharmacy-backend:${tag}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${REGISTRY}/${owner}/kay-care-pharmacy-frontend:${tag}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend
+        uses: docker/build-push-action@v6
+        with:
+          context: academic-pharmacy/backend
+          load: true
+          tags: kaycare-pharmacy-backend:local,${{ steps.meta.outputs.backend }}
+          cache-from: type=gha,scope=pharmacy-backend
+          cache-to: type=gha,mode=max,scope=pharmacy-backend
+      - name: Build frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: academic-pharmacy/frontend
+          load: true
+          tags: kaycare-pharmacy-frontend:local,${{ steps.meta.outputs.frontend }}
+          cache-from: type=gha,scope=pharmacy-frontend
+          cache-to: type=gha,mode=max,scope=pharmacy-frontend
+      - name: Secretos efímeros de CI (no se persisten)
+        working-directory: academic-pharmacy
+        run: |
+          {
+            echo "PHARMACY_DB_PASSWORD=$(openssl rand -hex 16)"
+            echo "PHARMACY_APP_KEY=base64:$(openssl rand -base64 32)"
+            echo "PHARMACY_ADMIN_PASSWORD=Ci-$(openssl rand -hex 10)Aa9"
+          } > .env
+      - name: docker compose up (arranque, red y salud)
+        working-directory: academic-pharmacy
+        run: |
+          docker compose up -d --no-build --wait --wait-timeout 180
+          docker compose ps
+      - name: Smoke test y concurrencia
+        working-directory: academic-pharmacy
+        run: |
+          set -a; . ./.env; set +a
+          ADMIN_PASSWORD="$PHARMACY_ADMIN_PASSWORD" bash scripts/smoke-test.sh
+          sleep 61 # ventana del rate limit de checkout
+          node scripts/concurrency-check.mjs
+      - name: Persistencia (down/up conserva datos)
+        working-directory: academic-pharmacy
+        run: |
+          before=$(docker compose exec -T db psql -U pharmacy_app -d kaycare_pharmacy -tAc 'select count(*) from orders')
+          docker compose down
+          docker compose up -d --no-build --wait --wait-timeout 180
+          after=$(docker compose exec -T db psql -U pharmacy_app -d kaycare_pharmacy -tAc 'select count(*) from orders')
+          echo "pedidos antes=$before después=$after"
+          test "$before" = "$after"
+      - name: Logs ante fallo
+        if: failure()
+        working-directory: academic-pharmacy
+        run: docker compose logs --no-color | grep -viE 'password|app_key' | tail -200
+      - name: Limpieza
+        if: always()
+        working-directory: academic-pharmacy
+        run: docker compose down -v && rm -f .env
+      - name: Publicar en GHCR (solo main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
+          docker push "${{ steps.meta.outputs.backend }}"
+          docker push "${{ steps.meta.outputs.frontend }}"
+          {
+            echo "### Imágenes publicadas"
+            echo "- \`${{ steps.meta.outputs.backend }}\`"
+            echo "- \`${{ steps.meta.outputs.frontend }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

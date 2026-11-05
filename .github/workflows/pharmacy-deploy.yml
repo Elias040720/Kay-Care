@@ -1,0 +1,165 @@
+# Kay Care Farmacia (proyecto académico) — Despliegue continuo a Azure.
+#
+# - Solo manual (workflow_dispatch): nunca se despliega por un push.
+# - Autenticación OIDC (federación de identidad): sin secretos de larga
+#   duración en GitHub.
+# - El apply exige aprobación humana mediante GitHub Environments
+#   ("pharmacy-demo" / "pharmacy-ha" con revisores obligatorios).
+# - Permisos mínimos: id-token para OIDC y lectura del repositorio.
+name: pharmacy-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Entorno de destino"
+        type: choice
+        options: [demo, ha]
+        default: demo
+      image_tag:
+        description: "Etiqueta de imagen publicada por pharmacy-ci (p. ej. sha-abc1234)"
+        type: string
+        required: true
+      action:
+        description: "plan = solo previsualizar; apply = desplegar tras aprobación"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pharmacy-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TF_VERSION: "1.9.8"
+  TF_IN_AUTOMATION: "true"
+  ARM_USE_OIDC: "true"
+
+jobs:
+  plan:
+    name: Terraform plan (${{ inputs.environment }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Entorno de solo lectura para el plan (sin revisores), con las variables OIDC.
+    environment: pharmacy-${{ inputs.environment }}-plan
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: academic-pharmacy/infra/terraform/environments/${{ inputs.environment }}
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar etiqueta de imagen
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          [[ "$IMAGE_TAG" =~ ^sha-[0-9a-f]{7}$ ]] || { echo "Etiqueta inválida: use sha-<7 hex>"; exit 1; }
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Backend remoto (estado cifrado en Azure Storage)
+        run: |
+          cat > backend_override.tf <<'EOF'
+          terraform {
+            backend "azurerm" {}
+          }
+          EOF
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=academic-pharmacy/${{ inputs.environment }}.tfstate" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+      - name: terraform plan
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          TF_VAR_use_oidc: "true"
+          TF_VAR_registry_username: ${{ vars.GHCR_PULL_USERNAME }}
+          TF_VAR_registry_password: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          terraform plan -input=false -lock-timeout=5m -out=tfplan \
+            -var "backend_image=ghcr.io/${owner}/kay-care-pharmacy-backend:${IMAGE_TAG}" \
+            -var "frontend_image=ghcr.io/${owner}/kay-care-pharmacy-frontend:${IMAGE_TAG}"
+          terraform show -no-color tfplan | tail -n 60 >> "$GITHUB_STEP_SUMMARY"
+      - name: Guardar plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: academic-pharmacy/infra/terraform/environments/${{ inputs.environment }}/tfplan
+          retention-days: 3
+
+  apply:
+    name: Terraform apply (${{ inputs.environment }}) — requiere aprobación
+    needs: plan
+    if: inputs.action == 'apply'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Entorno protegido con revisores obligatorios: el job espera aprobación.
+    environment:
+      name: pharmacy-${{ inputs.environment }}
+      url: ${{ steps.output.outputs.frontend_url }}
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: academic-pharmacy/infra/terraform/environments/${{ inputs.environment }}
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - name: Descargar plan aprobado
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: academic-pharmacy/infra/terraform/environments/${{ inputs.environment }}
+      - name: Inicializar backend
+        run: |
+          cat > backend_override.tf <<'EOF'
+          terraform {
+            backend "azurerm" {}
+          }
+          EOF
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=academic-pharmacy/${{ inputs.environment }}.tfstate" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+      - name: terraform apply (plan exacto que se aprobó)
+        run: terraform apply -input=false -lock-timeout=5m tfplan
+      - name: Salidas
+        id: output
+        run: echo "frontend_url=$(terraform output -raw frontend_url)" >> "$GITHUB_OUTPUT"
+      - name: Verificación posterior al despliegue
+        env:
+          URL: ${{ steps.output.outputs.frontend_url }}
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS "$URL/healthz" >/dev/null && curl -fsS "$URL/api/v1/store/health" | grep -q '"status":"ok"'; then
+              echo "✔ Despliegue verificado: $URL" >> "$GITHUB_STEP_SUMMARY"; exit 0
+            fi
+            sleep 10
+          done
+          echo "✘ El despliegue no respondió a tiempo" >> "$GITHUB_STEP_SUMMARY"; exit 1
