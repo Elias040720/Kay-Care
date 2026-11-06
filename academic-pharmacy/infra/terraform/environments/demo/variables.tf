@@ -68,6 +68,42 @@ variable "seed_demo_data" {
   default     = true
 }
 
+variable "backend_cpu" {
+  description = "vCPU de la API (0,25 = combinación mínima de Container Apps)."
+  type        = number
+  default     = 0.25
+}
+
+variable "backend_memory" {
+  description = "Memoria de la API (debe corresponder a la vCPU: 0,25 → 0.5Gi)."
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "max_replicas" {
+  description = "Réplicas máximas por app (1 mantiene el consumo dentro de la concesión gratuita)."
+  type        = number
+  default     = 1
+}
+
+variable "enable_uploads_share" {
+  description = "Azure Files para imágenes subidas (false = disco efímero, costo cero)."
+  type        = bool
+  default     = false
+}
+
+variable "log_daily_quota_gb" {
+  description = "Tope diario de Log Analytics (0,1 GB/día ≈ 3 GB/mes, dentro de los 5 GB gratuitos)."
+  type        = number
+  default     = 0.1
+}
+
+variable "budget_amount" {
+  description = "Presupuesto mensual en la moneda de facturación (0 = no crear presupuesto)."
+  type        = number
+  default     = 1
+}
+
 variable "tags" {
   description = "Etiquetas adicionales."
   type        = map(string)

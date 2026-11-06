@@ -30,6 +30,12 @@ variable "zone_redundancy_enabled" {
   default     = false
 }
 
+variable "enable_uploads_share" {
+  description = "Crear Azure Files para imágenes subidas (false = disco efímero, sin costo de almacenamiento)."
+  type        = bool
+  default     = true
+}
+
 variable "storage_account_name" {
   description = "Cuenta de almacenamiento para Azure Files (3–24 minúsculas/dígitos, única global)."
   type        = string

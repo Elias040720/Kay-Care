@@ -134,7 +134,7 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-      packages: write # solo se usa al publicar desde main
+      packages: write # solo se usa al publicar (push a main o a la rama de despliegue)
     env:
       REGISTRY: ghcr.io
     steps:
@@ -200,8 +200,12 @@ jobs:
         if: always()
         working-directory: academic-pharmacy
         run: docker compose down -v && rm -f .env
-      - name: Publicar en GHCR (solo main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # Se publica desde main y desde la rama del despliegue académico (las
+      # etiquetas sha-<commit> son inmutables); nunca desde pull requests.
+      - name: Publicar en GHCR (main / rama de despliegue)
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/academic-pharmacy-cloud')
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
           docker push "${{ steps.meta.outputs.backend }}"

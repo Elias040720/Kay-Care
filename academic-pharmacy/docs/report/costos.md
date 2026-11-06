@@ -9,18 +9,27 @@
 - Container Apps de consumo: vCPU activa ≈ US$ 0,000024/s, memoria ≈ US$ 0,000003/GiB·s; concesión gratuita mensual de 180 000 vCPU·s, 360 000 GiB·s y 2 millones de solicitudes por suscripción.
 - Log Analytics ≈ US$ 2,30/GB ingerido (primeros 5 GB/mes gratuitos por cuenta de facturación).
 
-## DEMO
+## DEMO — perfil de costo cero (Azure for Students)
 
-| Recurso | Configuración | Supuesto de uso | Estimación |
+El entorno `demo` está dimensionado para caber en los servicios gratuitos de una suscripción **Azure for Students** (o de la cuenta gratuita de 12 meses). Los límites de la capa gratuita deben confirmarse en el portal (*Suscripciones → Servicios gratuitos*) antes del despliegue.
+
+| Recurso | Configuración | Límite gratuito usado | Estimación |
 |---|---|---|---|
-| PostgreSQL Flexible | B1ms (1 vCore burstable, 2 GiB) + 32 GiB | Encendido 24/7 | ≈ 12,4 (cómputo) + 3,7 (almacenamiento) = **≈ 16** |
-| Container Apps | Web 0,25 vCPU/0,5 GiB; API 0,5 vCPU/1 GiB; mín. 0 réplicas | ~40 h activas/mes en demostraciones | **≈ 0–3** (cubierto casi por la concesión gratuita) |
-| Log Analytics | Tope 0,5 GB/día | ~2 GB/mes | **≈ 0–5** |
-| Azure Files LRS | 5 GiB de cuota, < 100 MB usados | — | **< 1** |
-| Almacenamiento de estado Terraform | Cuenta LRS | < 1 MB | **< 1** |
-| **Total DEMO** | | | **≈ US$ 17–25/mes** |
+| PostgreSQL Flexible | B1ms + 32 GiB, copias 7 días, sin HA ni geo-copias | 750 h/mes de B1ms, 32 GB de almacenamiento y 32 GB de copias (12 meses) | **US$ 0** |
+| Container Apps | Web y API a 0,25 vCPU / 0,5 GiB, mín. 0 y máx. 1 réplica | Concesión mensual: 180 000 vCPU·s y 360 000 GiB·s ≈ **100 h activas** de ambas apps a la vez | **US$ 0** si la actividad es < 100 h/mes |
+| Log Analytics | Tope 0,1 GB/día, retención 30 días | 5 GB/mes de ingesta | **US$ 0** |
+| Azure Files | **No se crea** (`enable_uploads_share = false`): las imágenes subidas se pierden al reiniciar la API | — | **US$ 0** |
+| Estado de Terraform | Local (despliegue manual); no se crea cuenta de almacenamiento | — | **US$ 0** |
+| Presupuesto | US$ 1/mes, alertas al 1 % real y 100 % previsto a los *Owner* | Cost Management es gratuito | **US$ 0** |
+| **Total DEMO** | | | **US$ 0 dentro de los límites** |
 
-Ahorro adicional: detener el servidor PostgreSQL cuando no se use (`az postgres flexible-server stop`) elimina el costo de cómputo (Azure lo reinicia automáticamente a los 7 días); el almacenamiento se sigue cobrando.
+Riesgos que romperían el costo cero y su mitigación:
+- **Más de ~100 h activas al mes** de las apps (escala a cero tras unos minutos sin tráfico; ningún sondeo externo debe mantenerlas despiertas).
+- **Pasar los 12 meses** del servicio gratuito de PostgreSQL → borrar el entorno (`terraform destroy`) antes del vencimiento.
+- **Un segundo servidor PostgreSQL** en la misma suscripción consumiría horas fuera de las 750 gratuitas.
+- En Azure for Students no hay tarjeta asociada: al agotarse el crédito los recursos se detienen, no se generan cargos al usuario.
+
+Configuración anterior (pago por uso, sin capa gratuita): ≈ US$ 17–25/mes, casi todo por PostgreSQL B1ms 24/7.
 
 ## HA
 

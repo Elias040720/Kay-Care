@@ -1,9 +1,15 @@
 # ============================================================================
-# Kay Care Farmacia — entorno DEMO (bajo costo)
+# Kay Care Farmacia — entorno DEMO (costo cero con Azure for Students)
 #
-# - Container Apps de consumo con escala a cero.
-# - PostgreSQL Flexible Server Burstable B1ms, sin HA, acceso público con TLS
+# Pensado para caber en la capa gratuita (ver docs/report/costos.md):
+# - Container Apps de consumo con escala a cero, 1 réplica máxima y
+#   0,25 vCPU / 0,5 GiB por app (concesión gratuita mensual de ACA).
+# - PostgreSQL Flexible Server Burstable B1ms + 32 GiB (servicio gratuito
+#   12 meses), sin HA ni copias geo-redundantes, acceso público con TLS
 #   obligatorio y firewall limitado a servicios de Azure.
+# - Log Analytics con tope diario (dentro de los 5 GB/mes gratuitos).
+# - Sin Azure Files: las imágenes subidas viven en disco efímero.
+# - Presupuesto mensual con alertas a los propietarios de la suscripción.
 # - Sin VNet ni redundancia de zona: existen puntos únicos de fallo
 #   (ver docs/architecture/demo-vs-ha.md).
 # ============================================================================
@@ -69,7 +75,7 @@ module "monitoring" {
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
   retention_in_days   = 30
-  daily_quota_gb      = 0.5
+  daily_quota_gb      = var.log_daily_quota_gb
   tags                = local.tags
 }
 
@@ -79,6 +85,7 @@ module "environment" {
   location                   = var.location
   resource_group_name        = azurerm_resource_group.this.name
   log_analytics_workspace_id = module.monitoring.workspace_id
+  enable_uploads_share       = var.enable_uploads_share
   storage_account_name       = "st${var.project}${local.env}${random_string.suffix.result}"
   storage_replication_type   = "LRS"
   share_quota_gb             = 5
@@ -108,18 +115,18 @@ module "backend" {
   resource_group_name = azurerm_resource_group.this.name
   environment_id      = module.environment.id
   image               = var.backend_image
-  cpu                 = 0.5
-  memory              = "1Gi"
+  cpu                 = var.backend_cpu
+  memory              = var.backend_memory
   external_ingress    = false
   min_replicas        = 0
-  max_replicas        = 2
+  max_replicas        = var.max_replicas
   liveness_path       = "/up"
   readiness_path      = "/api/v1/store/health"
   registry            = local.registry
-  storage_mount = {
+  storage_mount = var.enable_uploads_share ? {
     storage_name = module.environment.uploads_storage_name
     path         = "/app/storage/app/public"
-  }
+  } : null
 
   secrets = merge(local.registry_secret, {
     "app-key"        = "base64:${random_bytes.app_key.base64}"
@@ -177,7 +184,7 @@ module "frontend" {
   memory              = "0.5Gi"
   external_ingress    = true
   min_replicas        = 0
-  max_replicas        = 2
+  max_replicas        = var.max_replicas
   liveness_path       = "/healthz"
   readiness_path      = "/healthz"
   registry            = local.registry
@@ -190,4 +197,44 @@ module "frontend" {
   tags = local.tags
 
   depends_on = [module.backend]
+}
+
+# ---------------------------------------------------------------------------
+# Presupuesto: no limita el gasto, pero avisa por correo a los propietarios de
+# la suscripción en cuanto aparece cualquier cargo (umbral del 1 %).
+# ---------------------------------------------------------------------------
+data "azurerm_subscription" "current" {}
+
+resource "azurerm_consumption_budget_subscription" "this" {
+  count = var.budget_amount > 0 ? 1 : 0
+
+  name            = "budget-${local.prefix}"
+  subscription_id = data.azurerm_subscription.current.id
+  amount          = var.budget_amount
+  time_grain      = "Monthly"
+
+  time_period {
+    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+  }
+
+  notification {
+    enabled        = true
+    operator       = "GreaterThan"
+    threshold      = 1
+    threshold_type = "Actual"
+    contact_roles  = ["Owner"]
+  }
+
+  notification {
+    enabled        = true
+    operator       = "GreaterThan"
+    threshold      = 100
+    threshold_type = "Forecasted"
+    contact_roles  = ["Owner"]
+  }
+
+  lifecycle {
+    # La fecha de inicio solo se fija al crear el presupuesto.
+    ignore_changes = [time_period]
+  }
 }

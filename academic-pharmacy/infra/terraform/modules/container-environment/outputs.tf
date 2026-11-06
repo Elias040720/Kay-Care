@@ -14,6 +14,6 @@ output "static_ip_address" {
 }
 
 output "uploads_storage_name" {
-  description = "Nombre del almacenamiento del entorno para montar en la API."
-  value       = azurerm_container_app_environment_storage.uploads.name
+  description = "Nombre del almacenamiento del entorno para montar en la API (null si está desactivado)."
+  value       = var.enable_uploads_share ? azurerm_container_app_environment_storage.uploads[0].name : null
 }

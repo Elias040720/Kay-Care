@@ -1,6 +1,7 @@
 # Entorno de Azure Container Apps (perfil de consumo) + recurso compartido de
 # Azure Files para las imágenes de productos subidas por el administrador
 # (el disco del contenedor es efímero y no se comparte entre réplicas).
+# El recurso compartido es opcional: el perfil de costo cero lo desactiva.
 
 resource "azurerm_container_app_environment" "this" {
   name                       = var.name
@@ -25,6 +26,8 @@ resource "azurerm_container_app_environment" "this" {
 }
 
 resource "azurerm_storage_account" "uploads" {
+  count = var.enable_uploads_share ? 1 : 0
+
   name                            = var.storage_account_name
   resource_group_name             = var.resource_group_name
   location                        = var.location
@@ -38,16 +41,20 @@ resource "azurerm_storage_account" "uploads" {
 }
 
 resource "azurerm_storage_share" "uploads" {
+  count = var.enable_uploads_share ? 1 : 0
+
   name               = "product-images"
-  storage_account_id = azurerm_storage_account.uploads.id
+  storage_account_id = azurerm_storage_account.uploads[0].id
   quota              = var.share_quota_gb
 }
 
 resource "azurerm_container_app_environment_storage" "uploads" {
+  count = var.enable_uploads_share ? 1 : 0
+
   name                         = "product-images"
   container_app_environment_id = azurerm_container_app_environment.this.id
-  account_name                 = azurerm_storage_account.uploads.name
-  share_name                   = azurerm_storage_share.uploads.name
-  access_key                   = azurerm_storage_account.uploads.primary_access_key
+  account_name                 = azurerm_storage_account.uploads[0].name
+  share_name                   = azurerm_storage_share.uploads[0].name
+  access_key                   = azurerm_storage_account.uploads[0].primary_access_key
   access_mode                  = "ReadWrite"
 }
