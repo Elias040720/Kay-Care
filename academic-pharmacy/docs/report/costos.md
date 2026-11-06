@@ -29,6 +29,13 @@ Riesgos que romperían el costo cero y su mitigación:
 - **Un segundo servidor PostgreSQL** en la misma suscripción consumiría horas fuera de las 750 gratuitas.
 - En Azure for Students no hay tarjeta asociada: al agotarse el crédito los recursos se detienen, no se generan cargos al usuario.
 
+### Hallazgo en la suscripción real (revisión de solo lectura, 5-nov-2026)
+- Oferta **Azure for Students**; regiones permitidas por política: westus, mexicocentral, canadacentral, northcentralus, brazilsouth.
+- **No hay servidores PostgreSQL**: las 750 h gratuitas de B1ms siguen disponibles.
+- **La concesión gratuita de Container Apps ya está consumida** por otras apps de la misma suscripción con réplicas mínimas 1 encendidas 24/7. Por eso la tienda costaría ≈ **US$ 0,05 de crédito por hora activa** (2 apps × 0,25 vCPU / 0,5 GiB) y US$ 0 mientras esté escalada a cero: ≈ US$ 2/mes con 40 h de uso. No hay tarjeta asociada: se descuenta del crédito de estudiante.
+- Log Analytics: ya existe un workspace con tope de 1 GB/día que comparte los 5 GB gratuitos.
+- **Decisión del usuario: no desplegar por el momento.** Estado: URL pendiente de despliegue.
+
 Configuración anterior (pago por uso, sin capa gratuita): ≈ US$ 17–25/mes, casi todo por PostgreSQL B1ms 24/7.
 
 ## HA
