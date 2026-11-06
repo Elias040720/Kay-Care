@@ -1,0 +1,22 @@
+# Copiar a terraform.tfvars (ignorado por Git) y completar.
+# NUNCA versionar tokens ni contraseñas.
+
+# subscription_id = "00000000-0000-0000-0000-000000000000"
+# Azure for Students restringe las regiones por política: revisar con
+#   az policy assignment list --query "[].parameters.listOfAllowedLocations"
+# (en la suscripción revisada el 5-nov-2026: westus, mexicocentral,
+# canadacentral, northcentralus, brazilsouth; eastus2 NO está permitida).
+location = "canadacentral"
+project  = "kcf"
+
+# Imágenes publicadas por el workflow pharmacy-ci (etiqueta = SHA corto del commit).
+backend_image  = "ghcr.io/elias040720/kay-care-pharmacy-backend:sha-04d2f0f"
+frontend_image = "ghcr.io/elias040720/kay-care-pharmacy-frontend:sha-04d2f0f"
+
+# Las imágenes sha-04d2f0f son públicas en GHCR (verificado sin token).
+# Si los paquetes de GHCR fueran privados, define un token con permiso
+# read:packages mediante la variable de entorno TF_VAR_registry_password.
+# registry_username = "elias040720"
+
+admin_email    = "admin@farmacia.demo"
+seed_demo_data = true

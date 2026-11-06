@@ -1,0 +1,12 @@
+{
+  "name": "kay-care-farmacia-docs-tools",
+  "private": true,
+  "type": "module",
+  "description": "Genera docs/report/informe.pdf a partir de informe.md (usa el Chromium de Playwright del frontend).",
+  "scripts": {
+    "pdf": "node build-report-pdf.mjs"
+  },
+  "dependencies": {
+    "marked": "^15.0.4"
+  }
+}

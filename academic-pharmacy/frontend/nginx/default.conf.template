@@ -1,0 +1,77 @@
+# Kay Care Farmacia — nginx (plantilla procesada con envsubst al arrancar)
+
+map $http_x_forwarded_proto $kcf_forwarded_proto {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
+# HSTS solo cuando el tráfico llegó por HTTPS (ingress de Azure / proxy TLS).
+map $kcf_forwarded_proto $kcf_hsts {
+    https   "max-age=31536000; includeSubDomains";
+    default "";
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    server_tokens off;
+    client_max_body_size 3m;
+    client_body_timeout 15s;
+    client_header_timeout 15s;
+
+    # IP real del cliente detrás del ingress (rangos privados de la red interna).
+    set_real_ip_from 10.0.0.0/8;
+    set_real_ip_from 172.16.0.0/12;
+    set_real_ip_from 192.168.0.0/16;
+    set_real_ip_from 100.64.0.0/10;
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+    resolver_timeout 5s;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # API y archivos subidos: proxy al backend interno (mismo origen para el navegador).
+    location /api/ {
+        set $kcf_backend "${BACKEND_UPSTREAM}";
+        proxy_pass $kcf_backend;
+        include /etc/nginx/snippets/proxy.conf;
+    }
+
+    location /storage/ {
+        set $kcf_backend "${BACKEND_UPSTREAM}";
+        proxy_pass $kcf_backend;
+        include /etc/nginx/snippets/proxy.conf;
+    }
+
+    location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+
+    # SPA: cualquier otra ruta devuelve index.html (sin caché).
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ /index.html;
+    }
+}

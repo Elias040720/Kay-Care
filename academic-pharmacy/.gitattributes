@@ -1,0 +1,7 @@
+# Finales de línea LF dentro del módulo (los scripts de contenedor fallan con CRLF).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary
+*.ico binary

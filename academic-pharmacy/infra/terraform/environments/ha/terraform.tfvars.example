@@ -1,0 +1,20 @@
+# Copiar a terraform.tfvars (ignorado por Git) y completar.
+# Entorno HA: costo mensual sensiblemente mayor (ver docs/report/informe.md, costos).
+
+# subscription_id = "00000000-0000-0000-0000-000000000000"
+location = "eastus2" # región con 3 zonas de disponibilidad
+project  = "kcf"
+
+backend_image  = "ghcr.io/elias040720/kay-care-pharmacy-backend:sha-0000000"
+frontend_image = "ghcr.io/elias040720/kay-care-pharmacy-frontend:sha-0000000"
+
+# registry_username = "elias040720"   # token vía TF_VAR_registry_password
+
+postgres_sku          = "GP_Standard_D2ds_v5"
+frontend_min_replicas = 2
+frontend_max_replicas = 6
+backend_min_replicas  = 3
+backend_max_replicas  = 10
+
+admin_email    = "admin@farmacia.demo"
+seed_demo_data = true
