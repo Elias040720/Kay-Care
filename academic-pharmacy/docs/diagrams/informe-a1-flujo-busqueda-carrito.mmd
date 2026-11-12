@@ -1,0 +1,22 @@
+%% Informe — Flujo de compra (parte 1): del catálogo al carrito
+flowchart TD
+    inicio([Inicio]) --> catalogo[Catálogo]
+    catalogo --> buscar[Buscar o filtrar]
+    buscar --> filtros{¿Filtros válidos?}
+    filtros -- No --> e1[/Error 422 en pantalla/]
+    e1 --> buscar
+    filtros -- Sí --> hay{¿Hay resultados?}
+    hay -- No --> e2[/Estado vacío/]
+    e2 --> buscar
+    hay -- Sí --> producto[Seleccionar producto]
+    producto --> disp{¿Disponible?}
+    disp -- No --> e3[/Botón «Agotado»/]
+    disp -- Sí --> cant{¿Cantidad válida?<br/>1–10 y ≤ stock}
+    cant -- No --> e4[/Se ajusta al máximo y se avisa/]
+    e4 --> cant
+    cant -- Sí --> agregar[Agregar al carrito]
+    agregar --> validar[POST /cart/validate]
+    validar --> stock{¿Stock suficiente?}
+    stock -- No --> e5[/Ajustar cantidades/]
+    e5 --> validar
+    stock -- Sí --> sigue([Continuar al checkout → parte 2])

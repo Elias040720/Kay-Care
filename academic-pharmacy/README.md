@@ -72,8 +72,10 @@ powershell -ExecutionPolicy Bypass -File scripts\deploy-azure.ps1      # crea re
 
 ## Documentación
 
-- Informe: [`docs/report/informe.md`](docs/report/informe.md) · [PDF](docs/report/informe.pdf)
-- Diagramas: [`docs/diagrams/`](docs/diagrams/) (A flujo de compra, B Azure, C CI/CD, D alta disponibilidad). Se regeneran con `scripts/render-diagrams.sh`.
+- **Informe final para la universidad:** [`docs/report/KAY_CARE_INFORME_FINAL.pdf`](docs/report/KAY_CARE_INFORME_FINAL.pdf) · [Markdown](docs/report/KAY_CARE_INFORME_FINAL.md) · [DOCX editable](docs/report/KAY_CARE_INFORME_EDITABLE.docx)
+- Preparación de la sustentación: [guion de 8–10 min](docs/report/GUIÓN_EXPOSICION.md) · [guía de estudio](docs/report/GUIA_DE_ESTUDIO.md) · [preguntas de defensa](docs/report/PREGUNTAS_DEFENSA.md)
+- Informe técnico anterior (se conserva): [`docs/report/informe.md`](docs/report/informe.md) · [PDF](docs/report/informe.pdf)
+- Diagramas: [`docs/diagrams/`](docs/diagrams/) (A flujo de compra, B Azure, C CI/CD, D alta disponibilidad, E arquitectura general, F modelo de datos; `informe-*` son versiones compactas para A4). Se regeneran con `scripts/render-diagrams.sh`.
 - Evidencias: [`docs/evidence/`](docs/evidence/)
 - Amenazas: [`docs/security/threat-matrix.md`](docs/security/threat-matrix.md)
 - DEMO vs HA: [`docs/architecture/demo-vs-ha.md`](docs/architecture/demo-vs-ha.md)

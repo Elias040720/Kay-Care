@@ -10,23 +10,28 @@ flowchart TD
     filtros -- Sí --> hay{¿Hay resultados?}
     hay -- No --> vacio[/Estado vacío · limpiar filtros/]
     vacio --> buscar
-    hay -- Sí --> agregar[Agregar al carrito]
-    agregar --> agotado{¿Producto con stock?}
-    agotado -- No --> errAgotado[/Botón «Agotado» deshabilitado/]
+    hay -- Sí --> producto[Seleccionar producto]
+    producto --> disponible{¿Producto disponible?}
+    disponible -- No, agotado --> errAgotado[/Botón «Agotado» deshabilitado/]
     errAgotado --> buscar
-    agotado -- Sí --> verificar[Verificar stock en el servidor · POST /cart/validate]
+    disponible -- Sí --> cantidad{¿Cantidad válida? · 1 a 10 y ≤ stock}
+    cantidad -- No --> errCantidad[/Se ajusta al máximo permitido y se avisa/]
+    errCantidad --> cantidad
+    cantidad -- Sí --> agregar[Agregar al carrito]
+    agregar --> verificar[Verificar stock en el servidor · POST /cart/validate]
     verificar --> stockOk{¿Stock suficiente?}
-    stockOk -- No --> ajustar[/Aviso de stock · ajustar cantidades/]
+    stockOk -- No --> ajustar[/Aviso de stock insuficiente · ajustar cantidades/]
     ajustar --> verificar
     stockOk -- Sí --> checkout[Checkout simulado · alias ficticio + aceptar aviso]
     checkout --> datos{¿Alias válido? · sin DNI ni teléfonos}
-    datos -- No --> errDatos[/Errores del formulario/]
+    datos -- No --> errDatos[/Errores del formulario 422/]
     errDatos --> checkout
-    datos -- Sí --> guardar[[Guardar pedido · transacción con bloqueo de filas]]
-    guardar --> resultado{Resultado}
-    resultado -- 409 sin stock --> ajustar
+    datos -- Sí --> guardar[[Guardar pedido · POST /checkout · transacción con bloqueo de filas]]
+    guardar --> resultado{Respuesta del servidor}
+    resultado -- 409 stock insuficiente --> ajustar
     resultado -- 429 demasiados intentos --> espera[/Esperar y reintentar/]
     espera --> checkout
-    resultado -- Fallo de red --> reintento[/Reintento con la MISMA clave de idempotencia/]
+    resultado -- 5xx error de servidor o fallo de red --> errServidor[/Mensaje de error · el carrito se conserva/]
+    errServidor --> reintento[Reintentar con la MISMA clave de idempotencia]
     reintento --> guardar
     resultado -- 201 creado / 200 repetido --> confirmacion([Confirmación · «Pedido realizado en entorno de demostración»])

@@ -1,0 +1,17 @@
+%% Informe — Arquitectura en Azure (entorno HA de referencia; DEMO omite VNet y redundancia)
+flowchart TB
+    actions[GitHub Actions] -->|publica imágenes| ghcr[(GHCR)]
+    actions -.->|OIDC · solo manual| entra[Microsoft Entra ID]
+    user([Navegador]) -->|HTTPS 443| ingress
+    entra -->|RBAC sobre el grupo| rgname
+    subgraph rg [" "]
+        direction TB
+        rgname[/Grupo de recursos rg-kcf · Azure Container Apps/]
+        ingress{{Ingress HTTPS}} --> web[Container App web<br/>nginx + Vue]
+        web -->|interno| api[Container App API<br/>Laravel 12]
+        api -->|TLS| pg[(PostgreSQL<br/>Flexible Server)]
+        pg -.->|solo HA| pg2[(Réplica en espera<br/>otra zona)]
+        api -.->|solo HA| files[(Azure Files ZRS)]
+        api -.->|logs| law[(Log Analytics)]
+    end
+    ghcr -->|pull| web
