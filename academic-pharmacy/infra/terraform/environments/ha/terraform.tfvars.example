@@ -2,7 +2,9 @@
 # Entorno HA: costo mensual sensiblemente mayor (ver docs/report/informe.md, costos).
 
 # subscription_id = "00000000-0000-0000-0000-000000000000"
-location = "eastus2" # región con 3 zonas de disponibilidad
+# canadacentral tiene 3 zonas de disponibilidad y está permitida por la
+# política de la suscripción Azure for Students revisada (eastus2 no lo está).
+location = "canadacentral"
 project  = "kcf"
 
 backend_image  = "ghcr.io/elias040720/kay-care-pharmacy-backend:sha-0000000"

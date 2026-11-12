@@ -126,6 +126,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.4 -color .github/workflows/pharmacy-ci.yml .github/workflows/pharmacy-deploy.yml
+      - name: Sin despliegues automáticos a Azure
+        run: |
+          # pharmacy-deploy solo puede dispararse a mano (workflow_dispatch).
+          triggers="$(awk '/^on:/{f=1;next} f&&/^[^ #]/{exit} f' .github/workflows/pharmacy-deploy.yml | grep -E '^  [a-z_]+:' | tr -d ' :' | sort -u)"
+          echo "Disparadores de pharmacy-deploy: $triggers"
+          [ "$triggers" = "workflow_dispatch" ] || { echo "::error::pharmacy-deploy debe ser solo workflow_dispatch"; exit 1; }
+          # La CI nunca se autentica contra Azure ni aplica Terraform.
+          if grep -nE 'azure/login|terraform (apply|destroy)|ARM_CLIENT_ID|id-token: write' .github/workflows/pharmacy-ci.yml | grep -v "grep -nE"; then
+            echo "::error::pharmacy-ci no debe desplegar en Azure"; exit 1
+          fi
+          echo "OK: ningún push, merge, tag ni programación puede crear recursos en Azure."
 
   images:
     name: Imágenes · build + compose + smoke + concurrencia
