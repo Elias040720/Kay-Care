@@ -2,6 +2,8 @@
 
 Capturas reales generadas con **Playwright (Chromium)** contra el stack local `docker compose up --build` (http://localhost:8088), con `prefers-reduced-motion: reduce`. La fecha exacta de generación está en `evidence-report.json`.
 
+Las imágenes 23 a 26 muestran la salida textual real de los comandos, renderizada con `docs/tools/render-cli-evidence.mjs`; las 27 y 28 son capturas de las páginas públicas de GitHub Actions.
+
 Para regenerarlas:
 
 ```bash
@@ -33,6 +35,12 @@ cd frontend && ADMIN_PASSWORD=<contraseña del .env> npx playwright test
 | `20-movil-inicio.png` | Inicio en 390 px con buscador a ancho completo |
 | `21-movil-menu.png` | Menú lateral móvil con categorías |
 | `22-movil-catalogo.png` | Catálogo móvil tras navegar desde el menú, sin desbordamiento horizontal |
+| `23-docker-compose.png` | Salida real de `docker compose ps`, usuarios de los contenedores, salud de la API y volúmenes |
+| `24-terraform-validate.png` | Salida real de `terraform fmt -check`, `init -backend=false` y `validate` (demo y ha) |
+| `25-pruebas-automatizadas.png` | Salida real de PHPUnit (70 pruebas) y Vitest (45 pruebas) |
+| `26-regresion-clinica.png` | `git diff` del sistema clínico (sin cambios) y su batería de pruebas (108/108) |
+| `27-github-actions-ci.png` | Página pública de GitHub Actions con las ejecuciones de pharmacy-ci en verde |
+| `28-github-actions-deploy-sin-ejecuciones.png` | Página pública del workflow pharmacy-deploy: 0 ejecuciones |
 | `evidence-report.json` | Violaciones de axe por página (0 en las 6 auditadas) y errores de consola: solo el 401 esperado de la comprobación de sesión y el 422 del login incorrecto |
 
 ## Otros resultados verificados (12 de noviembre de 2026, equipo local)

@@ -1,0 +1,16 @@
+%% Informe — Flujo de compra (parte 2): checkout simulado y registro del pedido
+flowchart TD
+    desde([Desde el carrito]) --> checkout[Checkout simulado<br/>alias ficticio + aviso]
+    checkout --> alias{¿Alias válido?}
+    alias -- No --> e1[/Errores del formulario 422/]
+    e1 --> checkout
+    alias -- Sí --> post[[POST /checkout<br/>con Idempotency-Key]]
+    post --> tx[[Transacción: bloqueo de filas,<br/>precios del servidor, stock]]
+    tx --> res{Respuesta}
+    res -- 409 sin stock --> e2[/Volver al carrito y ajustar/]
+    res -- 429 límite --> e3[/Esperar y reintentar/]
+    e3 --> checkout
+    res -- 5xx o red --> e4[/Error · el carrito se conserva/]
+    e4 --> retry[Reintentar con la misma clave]
+    retry --> post
+    res -- 201 / 200 --> ok([Pedido realizado en<br/>entorno de demostración])

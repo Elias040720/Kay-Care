@@ -1,0 +1,20 @@
+%% Informe — Alta disponibilidad: diseño HA (no desplegado) y prueba local
+flowchart TB
+    user([Usuarios]) -->|HTTPS| lb[Ingress de Container Apps<br/>balanceo + health checks]
+    subgraph z1 [Zona 1]
+        w1[Web] --- a1[API]
+        pgP[(PostgreSQL primario)]
+    end
+    subgraph z2 [Zona 2]
+        w2[Web] --- a2[API]
+        pgS[(PostgreSQL en espera)]
+    end
+    subgraph z3 [Zona 3]
+        a3[API]
+    end
+    lb --> w1 & w2
+    a1 & a2 & a3 --> pgP
+    pgP -. réplica síncrona<br/>conmutación automática .-> pgS
+    subgraph local [Prueba local]
+        n[nginx] --> b1[API réplica 1] & b2[API réplica 2<br/>detenida en la prueba]
+    end

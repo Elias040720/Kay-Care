@@ -1,0 +1,68 @@
+%% (F) Modelo entidad-relación — base de datos de Kay Care Farmacia (PostgreSQL)
+erDiagram
+    categories ||--o{ products : "agrupa"
+    products ||--o{ stock_movements : "registra"
+    products |o--o{ order_items : "aparece en"
+    orders ||--|{ order_items : "contiene"
+    orders ||--o{ order_status_history : "cambia de estado"
+    admin_users |o--o{ stock_movements : "ajusta"
+    admin_users |o--o{ order_status_history : "actualiza"
+
+    categories {
+        bigint id PK
+        varchar name
+        varchar slug UK
+        smallint sort_order
+    }
+    products {
+        bigint id PK
+        bigint category_id FK
+        varchar sku UK
+        varchar slug UK
+        varchar name
+        int price_cents "CHECK > 0"
+        int compare_at_price_cents "opcional, oferta"
+        int stock "CHECK >= 0"
+        boolean is_active
+        boolean is_featured
+    }
+    stock_movements {
+        bigint id PK
+        bigint product_id FK
+        int delta
+        int stock_after
+        varchar reason
+        varchar reference
+        bigint admin_user_id FK
+    }
+    orders {
+        bigint id PK
+        varchar number UK "KCF-AAAA-NNNNNN"
+        varchar buyer_alias "ficticio"
+        varchar status "CHECK estados válidos"
+        int total_cents
+        varchar idempotency_key UK
+        char request_hash
+        char lookup_token
+    }
+    order_items {
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK
+        varchar product_name "instantánea"
+        int unit_price_cents
+        int quantity "CHECK > 0"
+        int line_total_cents
+    }
+    order_status_history {
+        bigint id PK
+        bigint order_id FK
+        varchar from_status
+        varchar to_status
+        bigint admin_user_id FK
+    }
+    admin_users {
+        bigint id PK
+        varchar email UK
+        varchar password "bcrypt"
+    }

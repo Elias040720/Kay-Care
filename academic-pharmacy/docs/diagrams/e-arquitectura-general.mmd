@@ -1,0 +1,20 @@
+%% (E) Arquitectura general — Usuario → Navegador → Frontend Vue → API Laravel → PostgreSQL
+flowchart TB
+    usuario([Usuario]) --> navegador[Navegador web]
+    navegador -->|HTTP localhost:8088 · HTTPS en Azure| nginx
+
+    subgraph front [Contenedor web]
+        direction LR
+        nginx[nginx sin root<br/>CSP y cabeceras] -->|archivos estáticos| spa[SPA Vue 3 + TypeScript<br/>catálogo · carrito · checkout · panel]
+    end
+
+    nginx -->|/api/* mismo origen · proxy interno| api
+
+    subgraph back [Contenedor API]
+        direction LR
+        api[API REST Laravel 12<br/>/api/v1/store] --> servicios[Servicios de dominio<br/>catálogo · checkout · inventario · pedidos]
+    end
+
+    servicios -->|SQL parametrizado · transacción · bloqueo de filas| db[(PostgreSQL 16<br/>productos · pedidos · stock · sesiones)]
+
+    db -.persistencia.- vol[(Volumen Docker pharmacy_pgdata en local<br/>PostgreSQL Flexible Server en Azure)]
