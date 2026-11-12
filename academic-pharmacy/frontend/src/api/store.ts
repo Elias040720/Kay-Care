@@ -8,6 +8,7 @@ export interface ProductQuery {
   max_price?: number | null
   in_stock?: boolean
   featured?: boolean
+  on_sale?: boolean
   sort?: string
   page?: number
   per_page?: number

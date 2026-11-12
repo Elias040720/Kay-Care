@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronLeft, ShoppingBag } from 'lucide-vue-next'
+import { PackageCheck, ShieldCheck, ShoppingCart, Store } from 'lucide-vue-next'
 import ProductIllustration from '@/components/ProductIllustration.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import StockBadge from '@/components/StockBadge.vue'
@@ -24,6 +24,7 @@ const notFound = ref(false)
 const failed = ref(false)
 const quantity = ref(1)
 
+const hasPromo = computed(() => (product.value?.discount_percent ?? 0) > 0 && !!product.value?.compare_at_price_cents)
 const inCart = computed(() => cart.lines.find((l) => l.product_id === product.value?.id)?.quantity ?? 0)
 const maxSelectable = computed(() => Math.max(1, Math.min(MAX_QUANTITY, (product.value?.stock ?? 0)) - inCart.value))
 
@@ -60,9 +61,15 @@ function addToCart() {
 
 <template>
   <div class="container-page py-8 sm:py-10">
-    <RouterLink to="/catalogo" class="mb-6 inline-flex items-center gap-1 text-sm text-ink-500 hover:text-sage-700">
-      <ChevronLeft class="h-4 w-4" aria-hidden="true" /> Volver al catálogo
-    </RouterLink>
+    <nav class="mb-6 text-xs text-ink-500" aria-label="Ruta de navegación">
+      <RouterLink to="/" class="hover:text-clinic-700 hover:underline">Inicio</RouterLink>
+      <span aria-hidden="true"> / </span>
+      <RouterLink to="/catalogo" class="hover:text-clinic-700 hover:underline">Catálogo</RouterLink>
+      <template v-if="product?.category">
+        <span aria-hidden="true"> / </span>
+        <RouterLink :to="{ name: 'catalog', query: { categoria: product.category.slug } }" class="hover:text-clinic-700 hover:underline">{{ product.category.name }}</RouterLink>
+      </template>
+    </nav>
 
     <div v-if="loading" class="grid gap-10 md:grid-cols-2" aria-busy="true">
       <div class="skeleton aspect-square rounded-xl2" />
@@ -86,39 +93,51 @@ function addToCart() {
 
     <template v-else-if="product">
       <article class="grid gap-10 md:grid-cols-2">
-        <div class="overflow-hidden rounded-xl2 shadow-lift motion-safe:animate-rise">
+        <div class="relative overflow-hidden rounded-3xl border border-sage-100 bg-white p-4 shadow-lift motion-safe:animate-rise">
+          <span v-if="hasPromo" class="absolute left-6 top-6 z-10 rounded-full bg-promo-600 px-3 py-1 text-sm font-bold text-white">-{{ product.discount_percent }}%</span>
           <ProductIllustration :kind="product.illustration" :image-url="product.image_url" :alt="product.name" size="lg" />
         </div>
         <div class="motion-safe:animate-rise">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sage-600">{{ product.brand }} · {{ product.category?.name }}</p>
+          <p class="text-xs font-bold uppercase tracking-[0.2em] text-sage-700">{{ product.brand }} · {{ product.category?.name }}</p>
           <h1 class="mt-2 text-3xl sm:text-4xl">{{ product.name }}</h1>
           <p class="mt-2 text-sm text-ink-500">{{ product.presentation }} · SKU {{ product.sku }}</p>
-          <div class="mt-5 flex items-center gap-3">
-            <p class="text-3xl font-semibold" data-testid="detail-price">{{ formatMoney(product.price_cents) }}</p>
-            <StockBadge :status="product.stock_status" :stock="product.stock" />
+          <div class="mt-5 rounded-2xl bg-sage-50/70 p-4">
+            <p v-if="hasPromo" class="text-sm text-ink-500">
+              Antes <s>{{ formatMoney(product.compare_at_price_cents ?? 0) }}</s>
+              <span class="ml-2 rounded-full bg-promo-50 px-2 py-0.5 text-xs font-bold text-promo-700">Ahorras {{ formatMoney((product.compare_at_price_cents ?? 0) - product.price_cents) }}</span>
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+              <p class="text-4xl font-extrabold" :class="hasPromo ? 'text-promo-700' : 'text-ink-900'" data-testid="detail-price">{{ formatMoney(product.price_cents) }}</p>
+              <StockBadge :status="product.stock_status" :stock="product.stock" />
+            </div>
+            <p class="mt-1 text-xs text-ink-500">Precio ficticio en soles con IGV incluido · Stock disponible: {{ product.stock }}</p>
           </div>
-          <p class="mt-1 text-xs text-ink-400">Precio ficticio con IGV incluido.</p>
 
           <p class="mt-6 whitespace-pre-line text-[15px] leading-relaxed text-ink-700">{{ product.description }}</p>
 
           <div v-if="product.stock > 0" class="mt-8 flex flex-wrap items-center gap-3">
             <QuantityStepper v-model="quantity" :max="maxSelectable" :label="product.name" />
             <button type="button" class="btn-primary px-6 py-3" :disabled="inCart >= Math.min(MAX_QUANTITY, product.stock)" data-testid="detail-add" @click="addToCart">
-              <ShoppingBag class="h-4 w-4" aria-hidden="true" /> Añadir al carrito
+              <ShoppingCart class="h-4 w-4" aria-hidden="true" /> Agregar al carrito
             </button>
           </div>
           <p v-else class="mt-8 rounded-xl bg-clay-100 px-4 py-3 text-sm text-clay-700">Producto agotado en la tienda demostrativa.</p>
           <p v-if="inCart" class="mt-3 text-sm text-ink-500">Ya tienes {{ inCart }} en tu carrito.</p>
 
-          <div class="mt-8 rounded-2xl bg-white/70 p-4 text-xs text-ink-500 ring-1 ring-cream-200">
-            Contenido informativo de un producto inventado para fines académicos. No constituye recomendación médica.
-          </div>
+          <ul class="mt-8 grid gap-3 sm:grid-cols-3">
+            <li class="flex items-start gap-2 rounded-xl border border-sage-100 p-3 text-xs text-ink-500"><PackageCheck class="h-4 w-4 shrink-0 text-clinic-600" aria-hidden="true" /> Stock validado al confirmar</li>
+            <li class="flex items-start gap-2 rounded-xl border border-sage-100 p-3 text-xs text-ink-500"><ShieldCheck class="h-4 w-4 shrink-0 text-clinic-600" aria-hidden="true" /> Compra simulada, sin cobros</li>
+            <li class="flex items-start gap-2 rounded-xl border border-sage-100 p-3 text-xs text-ink-500"><Store class="h-4 w-4 shrink-0 text-clinic-600" aria-hidden="true" /> Retiro en tienda ficticio</li>
+          </ul>
+          <p class="mt-4 text-xs text-ink-500">
+            Contenido informativo de un producto inventado para fines académicos. No constituye recomendación médica ni indicación de uso.
+          </p>
         </div>
       </article>
 
       <section v-if="related.length" class="mt-16" aria-labelledby="relacionados">
         <h2 id="relacionados" class="mb-6 text-2xl">También en {{ product.category?.name }}</h2>
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           <ProductCard v-for="item in related" :key="item.id" :product="item" />
         </div>
       </section>

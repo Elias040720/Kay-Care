@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
-import { ChevronLeft, ChevronRight, PackageSearch, Search, SlidersHorizontal } from 'lucide-vue-next'
+import { BadgePercent, ChevronLeft, ChevronRight, LayoutGrid, PackageSearch, Search, SlidersHorizontal } from 'lucide-vue-next'
 import DemoBanner from '@/components/DemoBanner.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { storeApi, type ProductQuery } from '@/api/store'
 import { ApiError } from '@/api/client'
-import type { Category, PageMeta, Product } from '@/types'
+import type { PageMeta, Product } from '@/types'
+import { useCatalogStore } from '@/stores/catalog'
+import { categoryMeta } from '@/utils/categories'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +30,7 @@ interface Filters {
   min: string
   max: string
   stock: boolean
+  ofertas: boolean
   pagina: number
 }
 
@@ -41,6 +44,7 @@ function fromQuery(query: LocationQuery): Filters {
     min: /^\d+(\.\d{1,2})?$/.test(str(query.min)) ? str(query.min) : '',
     max: /^\d+(\.\d{1,2})?$/.test(str(query.max)) ? str(query.max) : '',
     stock: str(query.stock) === '1',
+    ofertas: str(query.ofertas) === '1',
     pagina: Math.max(1, Number.parseInt(str(query.pagina), 10) || 1),
   }
 }
@@ -49,7 +53,8 @@ const filters = reactive<Filters>(fromQuery(route.query))
 const searchInput = ref(filters.q)
 const products = ref<Product[]>([])
 const meta = ref<PageMeta | null>(null)
-const categories = ref<Category[]>([])
+const catalog = useCatalogStore()
+const categories = computed(() => catalog.categories)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const showFilters = ref(false)
@@ -59,7 +64,14 @@ let debounce: ReturnType<typeof setTimeout> | undefined
 const priceError = computed(() =>
   filters.min !== '' && filters.max !== '' && Number(filters.max) < Number(filters.min) ? 'El máximo debe ser mayor o igual al mínimo.' : null,
 )
-const activeCount = computed(() => [filters.q, filters.categoria, filters.min, filters.max, filters.stock ? '1' : ''].filter(Boolean).length)
+const activeCount = computed(() => [filters.q, filters.categoria, filters.min, filters.max, filters.stock ? '1' : '', filters.ofertas ? '1' : ''].filter(Boolean).length)
+const currentCategory = computed(() => (filters.categoria ? catalog.bySlug(filters.categoria) : undefined))
+const heading = computed(() => {
+  if (filters.ofertas && !currentCategory.value) return 'Ofertas de la semana'
+  if (currentCategory.value) return currentCategory.value.name
+  if (filters.q) return `Resultados para «${filters.q}»`
+  return 'Catálogo'
+})
 
 function toApiQuery(f: Filters): ProductQuery {
   return {
@@ -69,6 +81,7 @@ function toApiQuery(f: Filters): ProductQuery {
     min_price: f.min === '' ? undefined : Number(f.min),
     max_price: f.max === '' ? undefined : Number(f.max),
     in_stock: f.stock || undefined,
+    on_sale: f.ofertas || undefined,
     page: f.pagina,
     per_page: 12,
   }
@@ -101,6 +114,7 @@ function syncUrl() {
   if (filters.min) query.min = filters.min
   if (filters.max) query.max = filters.max
   if (filters.stock) query.stock = '1'
+  if (filters.ofertas) query.ofertas = '1'
   if (filters.pagina > 1) query.pagina = String(filters.pagina)
   router.replace({ name: 'catalog', query })
 }
@@ -125,7 +139,7 @@ function goToPage(page: number) {
 
 function clearFilters() {
   searchInput.value = ''
-  update({ q: '', categoria: '', min: '', max: '', stock: false, orden: 'featured' })
+  update({ q: '', categoria: '', min: '', max: '', stock: false, ofertas: false, orden: 'featured' })
 }
 
 // Navegación externa (p. ej. buscador del header) → re-sincroniza.
@@ -144,11 +158,7 @@ watch(
 
 onMounted(async () => {
   load()
-  try {
-    categories.value = await storeApi.categories()
-  } catch {
-    categories.value = []
-  }
+  await catalog.loadCategories()
 })
 onBeforeUnmount(() => {
   controller?.abort()
@@ -160,9 +170,31 @@ onBeforeUnmount(() => {
   <div class="container-page py-8 sm:py-10">
     <div class="mb-6"><DemoBanner /></div>
 
+    <!-- Accesos rápidos por categoría -->
+    <div class="-mx-4 mb-6 overflow-x-auto px-4 pb-1" role="group" aria-label="Categorías rápidas">
+      <div class="flex w-max gap-2">
+        <button type="button" class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors" :class="!filters.categoria && !filters.ofertas ? 'border-clinic-600 bg-clinic-600 text-white' : 'border-sage-100 bg-white text-ink-700 hover:border-clinic-200'" :aria-pressed="!filters.categoria && !filters.ofertas" @click="update({ categoria: '', ofertas: false })">
+          <LayoutGrid class="h-4 w-4" aria-hidden="true" /> Todo
+        </button>
+        <button type="button" class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors" :class="filters.ofertas ? 'border-promo-600 bg-promo-600 text-white' : 'border-sage-100 bg-white text-promo-700 hover:border-promo-600'" :aria-pressed="filters.ofertas" data-testid="chip-ofertas" @click="update({ ofertas: !filters.ofertas })">
+          <BadgePercent class="h-4 w-4" aria-hidden="true" /> Ofertas
+        </button>
+        <button v-for="category in categories" :key="category.id" type="button" class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors" :class="filters.categoria === category.slug ? 'border-clinic-600 bg-clinic-600 text-white' : 'border-sage-100 bg-white text-ink-700 hover:border-clinic-200'" :aria-pressed="filters.categoria === category.slug" :data-testid="`chip-${category.slug}`" @click="update({ categoria: filters.categoria === category.slug ? '' : category.slug })">
+          <component :is="categoryMeta(category.slug).icon" class="h-4 w-4" aria-hidden="true" /> {{ category.name }}
+        </button>
+      </div>
+    </div>
+
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 class="text-3xl sm:text-4xl">Catálogo</h1>
+        <nav class="mb-2 text-xs text-ink-500" aria-label="Ruta de navegación">
+          <RouterLink to="/" class="hover:text-clinic-700 hover:underline">Inicio</RouterLink>
+          <span aria-hidden="true"> / </span>
+          <RouterLink to="/catalogo" class="hover:text-clinic-700 hover:underline">Catálogo</RouterLink>
+          <template v-if="currentCategory"><span aria-hidden="true"> / </span><span>{{ currentCategory.name }}</span></template>
+        </nav>
+        <h1 class="text-3xl sm:text-4xl" data-testid="catalog-heading">{{ heading }}</h1>
+        <p v-if="currentCategory?.description" class="mt-1 text-sm text-ink-500">{{ currentCategory.description }}</p>
         <p class="mt-1 text-sm text-ink-500" aria-live="polite" data-testid="results-count">
           <template v-if="loading">Buscando productos…</template>
           <template v-else-if="meta">{{ meta.total }} {{ meta.total === 1 ? 'producto' : 'productos' }}</template>
@@ -205,7 +237,7 @@ onBeforeUnmount(() => {
           <legend class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-ink-700">Categoría</legend>
           <div class="space-y-1">
             <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-sage-50">
-              <input type="radio" name="categoria" value="" class="accent-sage-600" :checked="filters.categoria === ''" @change="update({ categoria: '' })" />
+              <input type="radio" name="categoria" value="" class="accent-clinic-600" :checked="filters.categoria === ''" @change="update({ categoria: '' })" />
               Todas
             </label>
             <label v-for="category in categories" :key="category.id" class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-sage-50">
@@ -214,7 +246,7 @@ onBeforeUnmount(() => {
                   type="radio"
                   name="categoria"
                   :value="category.slug"
-                  class="accent-sage-600"
+                  class="accent-clinic-600"
                   :checked="filters.categoria === category.slug"
                   :data-testid="`filter-category-${category.slug}`"
                   @change="update({ categoria: category.slug })"
@@ -242,8 +274,13 @@ onBeforeUnmount(() => {
         </fieldset>
 
         <label class="flex cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" class="h-4 w-4 accent-sage-600" :checked="filters.stock" data-testid="filter-in-stock" @change="update({ stock: ($event.target as HTMLInputElement).checked })" />
+          <input type="checkbox" class="h-4 w-4 accent-clinic-600" :checked="filters.stock" data-testid="filter-in-stock" @change="update({ stock: ($event.target as HTMLInputElement).checked })" />
           Solo con stock disponible
+        </label>
+
+        <label class="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" class="h-4 w-4 accent-promo-600" :checked="filters.ofertas" data-testid="filter-on-sale" @change="update({ ofertas: ($event.target as HTMLInputElement).checked })" />
+          Solo ofertas
         </label>
 
         <button v-if="activeCount" type="button" class="btn-ghost w-full" @click="clearFilters">Limpiar filtros</button>
@@ -256,7 +293,7 @@ onBeforeUnmount(() => {
           <button type="button" class="btn-ghost mt-3" @click="load">Reintentar</button>
         </div>
 
-        <div v-else-if="loading" class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+        <div v-else-if="loading" class="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3" aria-busy="true">
           <SkeletonCard v-for="n in 6" :key="n" />
         </div>
 
@@ -270,7 +307,7 @@ onBeforeUnmount(() => {
         </EmptyState>
 
         <template v-else>
-          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div class="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
             <ProductCard v-for="product in products" :key="product.id" :product="product" />
           </div>
 
@@ -283,7 +320,7 @@ onBeforeUnmount(() => {
               :key="page"
               type="button"
               class="h-10 min-w-[2.5rem] rounded-full px-3 text-sm font-medium transition-colors"
-              :class="page === meta.current_page ? 'bg-sage-600 text-cream-50' : 'text-ink-700 hover:bg-sage-50'"
+              :class="page === meta.current_page ? 'bg-clinic-600 text-white' : 'text-ink-700 hover:bg-sage-50'"
               :aria-current="page === meta.current_page ? 'page' : undefined"
               @click="goToPage(page)"
             >

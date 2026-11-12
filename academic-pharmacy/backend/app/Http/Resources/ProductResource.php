@@ -21,6 +21,9 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'presentation' => $this->presentation,
             'price_cents' => $this->price_cents,
+            // Precio «antes» solo si realmente es mayor (promoción ficticia).
+            'compare_at_price_cents' => $this->hasDiscount() ? $this->compare_at_price_cents : null,
+            'discount_percent' => $this->discountPercent(),
             'stock' => $this->stock,
             'stock_status' => $this->stockStatus(),
             'image_url' => $this->imageUrl(),

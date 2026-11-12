@@ -20,6 +20,8 @@ export interface ProductPayload {
   presentation: string
   brand: string
   price: number
+  /** Precio «antes» (oferta ficticia). null o vacío = sin promoción. */
+  compare_at_price: number | null
   stock?: number
   low_stock_threshold: number
   illustration: string

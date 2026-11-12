@@ -54,7 +54,7 @@ function print() {
     <article v-else-if="order" class="card overflow-hidden" data-testid="confirmation">
       <div class="bg-gradient-to-br from-sage-50 to-teal-50 px-6 py-8 text-center sm:px-10">
         <CheckCircle2 class="mx-auto h-14 w-14 text-sage-600 motion-safe:animate-rise" aria-hidden="true" />
-        <h1 class="mt-4 text-3xl">¡Pedido simulado registrado!</h1>
+        <h1 class="mt-4 text-3xl" data-testid="confirmation-title">Pedido realizado en entorno de demostración</h1>
         <p class="mt-2 text-sm text-ink-500">Número de pedido</p>
         <p class="mt-1 font-mono text-2xl font-semibold tracking-wider text-ink-900" data-testid="order-number">{{ order.number }}</p>
         <p class="mt-3 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-sage-700">
@@ -90,7 +90,7 @@ function print() {
           </tfoot>
         </table>
 
-        <p class="mt-6 rounded-xl bg-cream-100 px-4 py-3 text-xs text-ink-500">
+        <p class="mt-6 rounded-xl bg-sage-50 px-4 py-3 text-xs text-ink-500">
           Este pedido existe solo en la base de datos de demostración. No se realizó ningún cobro ni habrá entrega.
         </p>
 

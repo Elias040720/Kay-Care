@@ -23,6 +23,7 @@ class ProductIndexRequest extends FormRequest
             'max_price' => ['nullable', 'numeric', 'min:0', 'max:100000', Rule::when($this->filled('min_price'), 'gte:min_price')],
             'in_stock' => ['nullable', 'boolean'],
             'featured' => ['nullable', 'boolean'],
+            'on_sale' => ['nullable', 'boolean'],
             'low_stock' => ['nullable', 'boolean'],
             'active' => ['nullable', 'boolean'],
             'sort' => ['nullable', Rule::in(ProductSearch::SORTS)],

@@ -44,6 +44,9 @@ class ProductSearch
         if (! empty($filters['low_stock'])) {
             $query->whereColumn('stock', '<=', 'low_stock_threshold');
         }
+        if (! empty($filters['on_sale'])) {
+            $query->whereNotNull('compare_at_price_cents')->whereColumn('compare_at_price_cents', '>', 'price_cents');
+        }
         if (! empty($filters['featured'])) {
             $query->where('is_featured', true);
         }

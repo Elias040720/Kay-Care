@@ -49,6 +49,20 @@ describe('CatalogView', () => {
     wrapper.unmount()
   })
 
+  it('filtra ofertas desde la URL y cambia el título', async () => {
+    const { wrapper } = await mountWithApp(CatalogView, '/catalogo?ofertas=1')
+    expect(storeApi.products).toHaveBeenLastCalledWith(expect.objectContaining({ on_sale: true }), expect.any(AbortSignal))
+    expect(wrapper.get('[data-testid="catalog-heading"]').text()).toBe('Ofertas de la semana')
+    wrapper.unmount()
+  })
+
+  it('muestra el nombre de la categoría seleccionada como título', async () => {
+    const { wrapper } = await mountWithApp(CatalogView, '/catalogo?categoria=cuidado-de-la-piel')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="catalog-heading"]').text()).toBe('Cuidado de la piel')
+    wrapper.unmount()
+  })
+
   it('ignora parámetros de URL inválidos', async () => {
     const { wrapper } = await mountWithApp(CatalogView, '/catalogo?orden=drop&categoria=<script>&min=abc')
     expect(storeApi.products).toHaveBeenLastCalledWith(

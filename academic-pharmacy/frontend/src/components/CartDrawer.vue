@@ -74,7 +74,7 @@ function issueText(productId: number): string | null {
       <aside
         v-if="cart.isOpen"
         ref="panel"
-        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-cream-50 shadow-lift focus:outline-none"
+        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-lift focus:outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-title"
