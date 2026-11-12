@@ -13,7 +13,7 @@ variable "use_oidc" {
 variable "location" {
   description = "Región de Azure con zonas de disponibilidad."
   type        = string
-  default     = "eastus2"
+  default     = "canadacentral"
 }
 
 variable "project" {

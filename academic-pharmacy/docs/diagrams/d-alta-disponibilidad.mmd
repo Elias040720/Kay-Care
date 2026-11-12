@@ -1,0 +1,36 @@
+%% (D) Alta disponibilidad — diseño HA en Azure (NO desplegado) y prueba local
+flowchart LR
+    user([Usuarios]) -->|HTTPS| ingress[Ingress gestionado de Container Apps<br/>balanceo L7 + TLS]
+
+    subgraph region [HA diseñado · canadacentral]
+        direction LR
+        subgraph z1 [Zona 1]
+            web1[Web nginx · réplica]
+            api1[API Laravel · réplica]
+            pgP[(PostgreSQL primario<br/>GP D2ds_v5)]
+        end
+        subgraph z2 [Zona 2]
+            web2[Web nginx · réplica]
+            api2[API Laravel · réplica]
+            pgS[(PostgreSQL en espera<br/>réplica síncrona)]
+        end
+        subgraph z3 [Zona 3]
+            api3[API Laravel · réplica]
+        end
+        files[(Azure Files ZRS<br/>imágenes)]
+        logs[(Log Analytics)]
+    end
+
+    ingress --> web1 & web2
+    web1 & web2 -->|ingress interno| api1 & api2 & api3
+    api1 & api2 & api3 --> pgP
+    pgP -. replicación síncrona · conmutación automática .-> pgS
+    api1 & api2 & api3 --> files
+    api1 & api2 & api3 -. logs y métricas .-> logs
+
+    subgraph local [Prueba local ejecutada]
+        direction TB
+        nginxL[nginx] --> b1[backend-1]
+        nginxL --> b2[backend-2 · se detiene a mitad de la prueba]
+        b1 & b2 --> pgL[(PostgreSQL local)]
+    end

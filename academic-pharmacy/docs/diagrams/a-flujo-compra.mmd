@@ -1,0 +1,32 @@
+%% (A) Flujo de compra — Kay Care Farmacia (tienda demostrativa)
+%% Inicio → Catálogo → Buscar → Agregar al carrito → Verificar stock →
+%% Checkout simulado → Guardar pedido → Confirmación, con caminos de error.
+flowchart TD
+    inicio([Inicio]) --> catalogo[Catálogo]
+    catalogo --> buscar[Buscar o filtrar · categoría, precio, ofertas]
+    buscar --> filtros{¿Filtros válidos?}
+    filtros -- No --> errFiltro[/Error 422 · mensaje en pantalla/]
+    errFiltro --> buscar
+    filtros -- Sí --> hay{¿Hay resultados?}
+    hay -- No --> vacio[/Estado vacío · limpiar filtros/]
+    vacio --> buscar
+    hay -- Sí --> agregar[Agregar al carrito]
+    agregar --> agotado{¿Producto con stock?}
+    agotado -- No --> errAgotado[/Botón «Agotado» deshabilitado/]
+    errAgotado --> buscar
+    agotado -- Sí --> verificar[Verificar stock en el servidor · POST /cart/validate]
+    verificar --> stockOk{¿Stock suficiente?}
+    stockOk -- No --> ajustar[/Aviso de stock · ajustar cantidades/]
+    ajustar --> verificar
+    stockOk -- Sí --> checkout[Checkout simulado · alias ficticio + aceptar aviso]
+    checkout --> datos{¿Alias válido? · sin DNI ni teléfonos}
+    datos -- No --> errDatos[/Errores del formulario/]
+    errDatos --> checkout
+    datos -- Sí --> guardar[[Guardar pedido · transacción con bloqueo de filas]]
+    guardar --> resultado{Resultado}
+    resultado -- 409 sin stock --> ajustar
+    resultado -- 429 demasiados intentos --> espera[/Esperar y reintentar/]
+    espera --> checkout
+    resultado -- Fallo de red --> reintento[/Reintento con la MISMA clave de idempotencia/]
+    reintento --> guardar
+    resultado -- 201 creado / 200 repetido --> confirmacion([Confirmación · «Pedido realizado en entorno de demostración»])

@@ -1,6 +1,9 @@
 # Kay Care Farmacia (proyecto académico) — Despliegue continuo a Azure.
 #
-# - Solo manual (workflow_dispatch): nunca se despliega por un push.
+# - Solo manual (workflow_dispatch): nunca se despliega por push, merge, tag,
+#   pull request ni programación. pharmacy-ci verifica que siga siendo así.
+# - Solo desde main y, para apply, con la confirmación escrita
+#   "DESPLEGAR-<entorno>" (autoriza costos en Azure) + aprobación del Environment.
 # - Autenticación OIDC (federación de identidad): sin secretos de larga
 #   duración en GitHub.
 # - El apply exige aprobación humana mediante GitHub Environments
@@ -25,6 +28,11 @@ on:
         type: choice
         options: [plan, apply]
         default: plan
+      confirmacion:
+        description: "Solo para apply: escribe DESPLEGAR-demo o DESPLEGAR-ha (autoriza costos en Azure)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -45,6 +53,8 @@ env:
 jobs:
   plan:
     name: Terraform plan (${{ inputs.environment }})
+    # Solo desde main: una rama no puede usar este workflow para crear recursos.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Entorno de solo lectura para el plan (sin revisores), con las variables OIDC.
@@ -61,6 +71,17 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     steps:
       - uses: actions/checkout@v4
+      - name: Guardas de costo
+        env:
+          ACTION: ${{ inputs.action }}
+          TARGET: ${{ inputs.environment }}
+          CONFIRMATION: ${{ inputs.confirmacion }}
+        run: |
+          if [ "$ACTION" = "apply" ] && [ "$CONFIRMATION" != "DESPLEGAR-$TARGET" ]; then
+            echo "::error::Para apply escribe exactamente DESPLEGAR-$TARGET en 'confirmacion'."
+            exit 1
+          fi
+          echo "Acción: $ACTION · entorno: $TARGET" >> "$GITHUB_STEP_SUMMARY"
       - name: Validar etiqueta de imagen
         env:
           IMAGE_TAG: ${{ inputs.image_tag }}
@@ -105,7 +126,7 @@ jobs:
   apply:
     name: Terraform apply (${{ inputs.environment }}) — requiere aprobación
     needs: plan
-    if: inputs.action == 'apply'
+    if: inputs.action == 'apply' && inputs.confirmacion == format('DESPLEGAR-{0}', inputs.environment) && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     # Entorno protegido con revisores obligatorios: el job espera aprobación.

@@ -30,7 +30,9 @@ check "sin versión de nginx" "$(! grep -qi 'Server: nginx/' <<<"$headers"; echo
 products="$(curl -s "$BASE_URL/api/v1/store/products?per_page=48")"
 total="$(sed -n 's/.*"total":\([0-9]*\).*/\1/p' <<<"$products")"
 check "catálogo con productos (total=$total)" "$([ "${total:-0}" -ge 20 ]; echo $?)"
-pid="$(sed -n 's/^{"data":\[{"id":\([0-9]*\).*/\1/p' <<<"$products")"
+# Producto con stock para el checkout (corridas previas pueden agotar alguno).
+in_stock="$(curl -s "$BASE_URL/api/v1/store/products?in_stock=1&sort=stock_desc&per_page=1")"
+pid="$(sed -n 's/^{"data":\[{"id":\([0-9]*\).*/\1/p' <<<"$in_stock")"
 
 check "admin sin sesión → 401" "$([ "$(code "$BASE_URL/api/v1/store/admin/dashboard" -H 'Accept: application/json')" = 401 ]; echo $?)"
 

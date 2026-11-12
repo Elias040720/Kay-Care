@@ -10,13 +10,13 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-cream-100 font-sans text-ink-900;
+    @apply bg-white font-sans text-ink-900 antialiased;
   }
   :focus-visible {
-    @apply outline-none ring-2 ring-teal-400 ring-offset-2 ring-offset-cream-100;
+    @apply outline-none ring-2 ring-teal-400 ring-offset-2 ring-offset-white;
   }
   h1, h2, h3 {
-    @apply font-display tracking-tight;
+    @apply font-display font-bold tracking-tight;
   }
 }
 
@@ -30,13 +30,13 @@
       disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-sage-600 text-cream-50 shadow-soft hover:bg-sage-700;
+    @apply btn bg-clinic-600 text-white shadow-soft hover:bg-clinic-700;
   }
   .btn-accent {
     @apply btn bg-teal-500 text-white shadow-soft hover:bg-teal-600;
   }
   .btn-ghost {
-    @apply btn border border-sage-200 bg-white/70 text-ink-700 hover:bg-sage-50;
+    @apply btn border border-sage-200 bg-white text-ink-700 hover:bg-sage-50;
   }
   .btn-danger {
     @apply btn border border-clay-100 bg-clay-100 text-clay-700 hover:bg-clay-500 hover:text-white;
@@ -46,7 +46,7 @@
       disabled:cursor-not-allowed disabled:opacity-40;
   }
   .card {
-    @apply rounded-xl2 border border-cream-200 bg-white shadow-soft;
+    @apply rounded-xl2 border border-sage-100 bg-white shadow-soft;
   }
   .field-label {
     @apply mb-1.5 block text-sm font-medium text-ink-700;
@@ -65,7 +65,7 @@
     @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-ink-900 focus:px-4 focus:py-2 focus:text-white;
   }
   .skeleton {
-    @apply relative overflow-hidden rounded-lg bg-cream-200;
+    @apply relative overflow-hidden rounded-lg bg-sage-50;
   }
   .skeleton::after {
     content: '';
@@ -93,6 +93,14 @@
 .drawer-enter-from,
 .drawer-leave-to {
   transform: translateX(100%);
+}
+.drawer-left-enter-active,
+.drawer-left-leave-active {
+  transition: transform 280ms cubic-bezier(.2,.7,.2,1);
+}
+.drawer-left-enter-from,
+.drawer-left-leave-to {
+  transform: translateX(-100%);
 }
 .fade-enter-active,
 .fade-leave-active {

@@ -29,7 +29,29 @@ describe('ProductCard', () => {
     const { wrapper } = await mountWithApp(ProductCard, '/', { props: { product } })
     const button = wrapper.get('[data-testid="add-to-cart"]')
     expect(button.attributes('disabled')).toBeDefined()
-    expect(button.attributes('aria-label')).toContain('agotado')
+    expect(button.attributes('aria-label')).toContain('Agotado')
+    wrapper.unmount()
+  })
+
+  it('muestra la etiqueta de promoción y el precio anterior cuando hay descuento', async () => {
+    const product = makeProduct({ price_cents: 4990, compare_at_price_cents: 5890, discount_percent: 15 })
+    const { wrapper } = await mountWithApp(ProductCard, '/', { props: { product } })
+    expect(wrapper.get('[data-testid="promo-badge"]').text()).toBe('-15%')
+    expect(wrapper.find('s').text()).toMatch(/58.90/)
+    wrapper.unmount()
+  })
+
+  it('no muestra promoción si el producto no tiene descuento', async () => {
+    const { wrapper } = await mountWithApp(ProductCard, '/', { props: { product: makeProduct() } })
+    expect(wrapper.find('[data-testid="promo-badge"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('da feedback en el botón tras agregar', async () => {
+    const { wrapper } = await mountWithApp(ProductCard, '/', { props: { product: makeProduct({ id: 78 }) } })
+    const button = wrapper.get('[data-testid="add-to-cart"]')
+    await button.trigger('click')
+    expect(button.text()).toContain('Agregado')
     wrapper.unmount()
   })
 

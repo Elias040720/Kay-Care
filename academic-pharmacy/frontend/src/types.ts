@@ -20,6 +20,9 @@ export interface Product {
   description: string
   presentation: string
   price_cents: number
+  /** Precio «antes» de una promoción ficticia (null si no hay promoción). */
+  compare_at_price_cents?: number | null
+  discount_percent?: number | null
   stock: number
   stock_status: StockStatus
   image_url: string | null

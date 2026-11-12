@@ -11,6 +11,8 @@ class AdminProductResource extends ProductResource
     public function toArray(Request $request): array
     {
         return array_merge(parent::toArray($request), [
+            // En la administración se expone el valor guardado tal cual.
+            'compare_at_price_cents' => $this->compare_at_price_cents,
             'category_id' => $this->category_id,
             'low_stock_threshold' => $this->low_stock_threshold,
             'is_active' => $this->is_active,

@@ -27,6 +27,11 @@ class ProductRequest extends FormRequest
         if ($this->filled('price')) {
             $data['price_cents'] = (int) round(((float) $this->input('price')) * 100);
         }
+        if ($this->has('compare_at_price')) {
+            $data['compare_at_price_cents'] = $this->filled('compare_at_price')
+                ? (int) round(((float) $this->input('compare_at_price')) * 100)
+                : null;
+        }
         if ($this->filled('sku')) {
             $data['sku'] = Str::upper(trim((string) $this->input('sku')));
         }
@@ -52,6 +57,8 @@ class ProductRequest extends FormRequest
             'brand' => [$required, 'string', 'max:80'],
             'price' => [$required, 'numeric', 'gt:0', 'max:9999.99', 'decimal:0,2'],
             'price_cents' => ['sometimes', 'integer', 'min:1', 'max:999999'],
+            'compare_at_price' => ['nullable', 'numeric', 'max:9999.99', 'decimal:0,2'],
+            'compare_at_price_cents' => ['nullable', 'integer', 'max:999999', Rule::when($this->filled('price_cents'), 'gt:price_cents')],
             'stock' => [$isUpdate ? 'prohibited' : 'sometimes', 'integer', 'min:0', 'max:100000'],
             'low_stock_threshold' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'illustration' => ['sometimes', Rule::in(Product::ILLUSTRATIONS)],
@@ -66,12 +73,13 @@ class ProductRequest extends FormRequest
             'stock.prohibited' => 'El stock se modifica desde «Gestión de stock» para dejar trazabilidad.',
             'price.gt' => 'El precio debe ser mayor que cero.',
             'sku.regex' => 'El SKU solo admite mayúsculas, números y guiones.',
+            'compare_at_price_cents.gt' => 'El precio «antes» debe ser mayor que el precio vigente.',
         ];
     }
 
     /** @return array<string, mixed> */
     public function productData(): array
     {
-        return collect($this->validated())->except(['price', 'stock'])->all();
+        return collect($this->validated())->except(['price', 'compare_at_price', 'stock'])->all();
     }
 }

@@ -32,6 +32,7 @@ function blank(): ProductPayload {
     presentation: '',
     brand: '',
     price: 0,
+    compare_at_price: null,
     stock: 0,
     low_stock_threshold: 5,
     illustration: 'capsule',
@@ -49,6 +50,7 @@ watch(
     Object.assign(form, blank(), p ? {
       category_id: p.category_id, sku: p.sku, name: p.name, short_description: p.short_description,
       description: p.description, presentation: p.presentation, brand: p.brand, price: p.price_cents / 100,
+      compare_at_price: p.compare_at_price_cents ? p.compare_at_price_cents / 100 : null,
       low_stock_threshold: p.low_stock_threshold, illustration: p.illustration, is_active: p.is_active, is_featured: p.is_featured,
     } : {})
   },
@@ -80,7 +82,8 @@ async function save() {
   errors.value = {}
   saving.value = true
   try {
-    const payload: Partial<ProductPayload> = { ...form, price: Number(form.price) }
+    const compareAt = form.compare_at_price === null || String(form.compare_at_price) === '' ? null : Number(form.compare_at_price)
+    const payload: Partial<ProductPayload> = { ...form, price: Number(form.price), compare_at_price: compareAt }
     if (isEdit.value) delete payload.stock
     let saved = isEdit.value
       ? await adminApi.updateProduct(props.product!.id, payload)
@@ -141,6 +144,11 @@ async function save() {
         <label for="pf-price" class="field-label">Precio (S/, IGV incluido)</label>
         <input id="pf-price" v-model.number="form.price" type="number" min="0.01" step="0.01" class="field" required />
         <p v-if="err('price')" class="field-error">{{ err('price') }}</p>
+      </div>
+      <div>
+        <label for="pf-compare" class="field-label">Precio antes (oferta, opcional)</label>
+        <input id="pf-compare" v-model.number="form.compare_at_price" type="number" min="0.01" step="0.01" class="field" placeholder="Sin promoción" />
+        <p v-if="err('compare_at_price_cents') || err('compare_at_price')" class="field-error">{{ err('compare_at_price_cents') || err('compare_at_price') }}</p>
       </div>
       <div v-if="!isEdit">
         <label for="pf-stock" class="field-label">Stock inicial</label>

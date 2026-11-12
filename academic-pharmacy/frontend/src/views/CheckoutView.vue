@@ -62,7 +62,7 @@ async function submit() {
     const result = await storeApi.checkout({ buyer_alias: alias.value.trim(), accept_demo_terms: accepted.value, items }, idempotencyKeyFor(signature))
     removeKey('session', KEY_STORAGE)
     cart.clear()
-    toast.success(result.replayed ? 'Pedido ya registrado' : 'Pedido simulado registrado', result.data.number)
+    toast.success(result.replayed ? 'Pedido ya registrado' : 'Pedido realizado en entorno de demostración', result.data.number)
     await router.push({ name: 'confirmation', params: { number: result.data.number }, query: { token: result.lookup_token } })
   } catch (e) {
     if (e instanceof ApiError) {
@@ -118,7 +118,7 @@ async function submit() {
           <p v-if="aliasError" id="alias-error" class="field-error" role="alert">{{ aliasError }}</p>
         </div>
 
-        <div class="rounded-2xl bg-cream-100 p-4 text-sm text-ink-500">
+        <div class="rounded-2xl bg-sage-50 p-4 text-sm text-ink-500">
           <p class="flex items-center gap-2 font-semibold text-ink-700"><Lock class="h-4 w-4" aria-hidden="true" /> Pago simulado</p>
           <p class="mt-1">Esta tienda no tiene pasarela de pago. Al confirmar se registra un pedido ficticio para la demostración y se descuenta el stock demo.</p>
         </div>

@@ -10,10 +10,11 @@ location = "canadacentral"
 project  = "kcf"
 
 # Imágenes publicadas por el workflow pharmacy-ci (etiqueta = SHA corto del commit).
-backend_image  = "ghcr.io/elias040720/kay-care-pharmacy-backend:sha-04d2f0f"
-frontend_image = "ghcr.io/elias040720/kay-care-pharmacy-frontend:sha-04d2f0f"
+backend_image  = "ghcr.io/elias040720/kay-care-pharmacy-backend:sha-0000000"
+frontend_image = "ghcr.io/elias040720/kay-care-pharmacy-frontend:sha-0000000"
 
-# Las imágenes sha-04d2f0f son públicas en GHCR (verificado sin token).
+# deploy-azure.ps1 sustituye la etiqueta por la última publicada desde main
+# (las imágenes de GHCR son públicas; no hace falta token).
 # Si los paquetes de GHCR fueran privados, define un token con permiso
 # read:packages mediante la variable de entorno TF_VAR_registry_password.
 # registry_username = "elias040720"

@@ -8,7 +8,17 @@
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8088'
 const API = `${BASE}/api/v1/store`
-const slug = process.argv[2] ?? 'enjuague-bucal-sin-alcohol'
+// Sin argumento se elige el producto activo con menor stock entre 1 y 8.
+let slug = process.argv[2]
+if (!slug) {
+  const all = (await (await fetch(`${API}/products?in_stock=1&per_page=48`)).json()).data
+  const candidate = all.filter((p) => p.stock >= 1 && p.stock <= 8).sort((a, b) => a.stock - b.stock)[0]
+  if (!candidate) {
+    console.error('No hay productos con stock entre 1 y 8: repón uno desde la administración o indica un slug.')
+    process.exit(2)
+  }
+  slug = candidate.slug
+}
 
 async function csrf() {
   const res = await fetch(`${API}/sanctum/csrf-cookie`, { headers: { Referer: `${BASE}/` } })

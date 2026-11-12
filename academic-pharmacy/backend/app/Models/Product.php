@@ -19,7 +19,7 @@ class Product extends Model
 
     protected $fillable = [
         'category_id', 'sku', 'name', 'slug', 'short_description', 'description',
-        'presentation', 'brand', 'price_cents', 'stock', 'low_stock_threshold',
+        'presentation', 'brand', 'price_cents', 'compare_at_price_cents', 'stock', 'low_stock_threshold',
         'image_path', 'illustration', 'is_active', 'is_featured',
     ];
 
@@ -27,6 +27,7 @@ class Product extends Model
     {
         return [
             'price_cents' => 'integer',
+            'compare_at_price_cents' => 'integer',
             'stock' => 'integer',
             'low_stock_threshold' => 'integer',
             'is_active' => 'boolean',
@@ -47,6 +48,21 @@ class Product extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function hasDiscount(): bool
+    {
+        return $this->compare_at_price_cents !== null && $this->compare_at_price_cents > $this->price_cents;
+    }
+
+    /** Porcentaje de descuento ficticio redondeado (null si no hay promoción). */
+    public function discountPercent(): ?int
+    {
+        if (! $this->hasDiscount()) {
+            return null;
+        }
+
+        return (int) round((1 - $this->price_cents / $this->compare_at_price_cents) * 100);
     }
 
     public function stockStatus(): string
