@@ -107,6 +107,7 @@ class CatalogSeeder extends Seeder
                     'stock' => $stock,
                     'low_stock_threshold' => 5,
                     'illustration' => $illustration,
+                    'image_path' => "/products/{$sku}.jpg",
                     'is_active' => true,
                     'is_featured' => $featured,
                 ],

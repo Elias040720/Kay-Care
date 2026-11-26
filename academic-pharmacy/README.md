@@ -11,6 +11,7 @@ La interfaz sigue los patrones de navegación de las farmacias online peruanas (
 |---|---|
 | `backend/` | API Laravel 12 en `/api/v1/store` (Form Requests, servicios de dominio, admin con sesión, 70 pruebas) |
 | `frontend/` | SPA Vue 3 + TypeScript + Vite + Tailwind + Vue Router + Pinia + Lucide (45 pruebas + E2E Playwright) |
+| `frontend/public/products/` | 24 imágenes reales de producto (`<SKU>.jpg`, fuentes abiertas) servidas estáticamente por nginx |
 | `docker-compose.yml` | PostgreSQL 16 + API + nginx, volumen persistente |
 | `infra/terraform/` | Módulos y entornos `demo` y `ha` para Azure (**no desplegados**) |
 | `scripts/` | Smoke test, concurrencia, alta disponibilidad local, diagramas, preflight y despliegue de Azure |
@@ -28,6 +29,7 @@ docker compose up --build
 - **Tienda:** <http://localhost:8088>
 - **Administración:** <http://localhost:8088/admin>, usuario `admin@farmacia.demo`. Si `PHARMACY_ADMIN_PASSWORD` está vacía, la contraseña temporal aparece **una sola vez** en `docker compose logs backend`.
 - **Datos:** el volumen `kaycare-pharmacy_pharmacy_pgdata` persiste entre reinicios. `docker compose down -v` lo elimina.
+- **Imágenes de productos:** los 24 productos demo usan imágenes locales en `frontend/public/products/<SKU>.jpg` (asignadas por `CatalogSeeder` y la migración `2026_11_25_000100_set_demo_product_images`). `Product::imageUrl()` sirve rutas absolutas `/products/...` desde el frontend y conserva `/storage/...` para imágenes subidas desde `/admin`.
 
 Verificaciones locales:
 

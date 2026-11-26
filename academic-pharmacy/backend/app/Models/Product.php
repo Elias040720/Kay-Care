@@ -76,7 +76,13 @@ class Product extends Model
 
     public function imageUrl(): ?string
     {
-        // Ruta relativa: el frontend (nginx) la sirve vía proxy, sin depender del host interno.
-        return $this->image_path ? '/storage/'.ltrim($this->image_path, '/') : null;
+        if (! $this->image_path) {
+            return null;
+        }
+
+        // Las rutas absolutas (/products/...) las sirve el frontend; las relativas, /storage/.
+        return str_starts_with($this->image_path, '/')
+            ? $this->image_path
+            : '/storage/'.ltrim($this->image_path, '/');
     }
 }
